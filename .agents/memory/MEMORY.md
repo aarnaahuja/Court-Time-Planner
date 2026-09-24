@@ -1,0 +1,1 @@
+- [Mockup preview discovery](mockup-preview-discovery.md) — newly created previews may briefly render blank while the sandbox registry catches up.

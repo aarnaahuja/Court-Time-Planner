@@ -52,7 +52,7 @@ export default function FinalisePage() {
          </div>
          <div className="print-sheet bg-white text-black p-8 md:p-12 shadow-sm border font-serif rounded-md">
           <div className="text-center mb-8 border-b-2 border-black pb-6">
-            <h1 className="text-2xl font-bold uppercase tracking-wider mb-2">High Court Cause List</h1>
+             <h1 className="text-2xl font-bold uppercase tracking-wider mb-2">Cause List</h1>
             <p className="text-lg">Before Justice Sehgal</p>
              <p className="text-sm mt-2 text-gray-600">Finalised: {format(new Date(list.publishedAt), 'MMMM d, yyyy h:mm a')}</p>
           </div>
@@ -114,7 +114,7 @@ export default function FinalisePage() {
             <div className="border rounded-md p-4 bg-muted/30">
               <div className="text-sm font-semibold text-muted-foreground mb-2">SMS / WhatsApp Preview</div>
               <p className="font-mono text-sm leading-relaxed">
-                 Court Time Planner: {list.days[0]?.cases[0]?.caseId || "Your matter"} before Justice Sehgal on {format(new Date(list.days[0]?.date || startDate), 'MMM d')}, appointment window {list.days[0]?.cases[0]?.window || "to be confirmed"}. Bring case papers and any required filings. This is an estimate; the court may run late.
+                 Cause list: {list.days[0]?.cases[0]?.caseId || "Your matter"} before Justice Sehgal on {format(new Date(list.days[0]?.date || startDate), 'MMM d')}, appointment window {list.days[0]?.cases[0]?.window || "to be confirmed"}. Bring case papers and any required filings. This is an estimate; the court may run late.
               </p>
             </div>
             <div className="border rounded-md p-4 bg-muted/30">
