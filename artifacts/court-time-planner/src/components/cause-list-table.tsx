@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import type { Case, ScheduledCase } from "@workspace/api-client-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,8 @@ const text = (value: unknown) => (value === undefined || value === null || value
 
 const csvCell = (value: unknown) => {
   const stringValue = value === undefined || value === null ? "" : String(value);
-  return `"${stringValue.replace(/"/g, '""')}"`;
+  const safeValue = /^\s*[=+\-@]/.test(stringValue) ? `'${stringValue}` : stringValue;
+  return `"${safeValue.replace(/"/g, '""')}"`;
 };
 
 const formatDate = (date: string) => {
@@ -97,10 +98,10 @@ export default function CauseListTable({ date, cases, roster, onSelectCase }: Ca
 
   return (
     <Card className="overflow-hidden border-primary/15 shadow-sm" data-testid="cause-list-table">
-      <CardHeader className="border-b bg-muted/20 px-4 py-4 sm:px-6">
+      <CardHeader className="border-b border-primary/15 bg-primary/5 px-4 py-4 sm:px-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Court sitting</p>
+            <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">Scheduled cause list</p>
             <CardTitle className="text-xl tracking-tight" data-testid="text-cause-list-date">{formatDate(date)}</CardTitle>
             <p className="mt-1 text-sm text-muted-foreground">
               Cause list · {displayedCases.length} of {cases.length} listed matters
@@ -152,44 +153,79 @@ export default function CauseListTable({ date, cases, roster, onSelectCase }: Ca
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[760px] border-collapse text-sm" aria-label={`Cause list for ${date}`}>
-              <thead className="bg-muted/35 text-left text-xs uppercase tracking-wider text-muted-foreground">
+              <thead className="bg-primary text-left text-xs uppercase tracking-wider text-primary-foreground">
                 <tr>
                   <th scope="col" className="w-14 px-4 py-3 font-semibold">No.</th>
-                  <th scope="col" className="px-4 py-3 font-semibold">Matter</th>
+                  <th scope="col" className="px-4 py-3 font-semibold">Case number</th>
+                  <th scope="col" className="px-4 py-3 font-semibold">Filing number</th>
+                  <th scope="col" className="px-4 py-3 font-semibold">Stage</th>
+                  <th scope="col" className="px-4 py-3 font-semibold">Party ID</th>
                   <th scope="col" className="px-4 py-3 font-semibold">Purpose</th>
-                  <th scope="col" className="px-4 py-3 font-semibold">Time</th>
-                  <th scope="col" className="px-4 py-3 font-semibold">Block</th>
+                  <th scope="col" className="px-4 py-3 font-semibold">Session / time</th>
+                  <th scope="col" className="px-4 py-3 font-semibold">Advocate ID</th>
                   <th scope="col" className="px-4 py-3 font-semibold">Likelihood</th>
-                  {expanded && <th scope="col" className="px-4 py-3 font-semibold">Record metadata</th>}
+                  <th scope="col" className="px-4 py-3 font-semibold">Warnings</th>
+                  {expanded && <th scope="col" className="px-4 py-3 font-semibold">Why listed / details</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
                 {displayedCases.map((item, index) => {
                   const record = metadata.get(item.caseId);
+                  const session = blockLabel(item.block);
+                  const newSession = index === 0 || blockLabel(displayedCases[index - 1].block) !== session;
                   return (
-                    <tr key={`${item.caseId}-${item.start}-${index}`} className="transition-colors hover:bg-muted/20" data-testid={`row-cause-${item.caseId}`}>
+                    <Fragment key={`${item.caseId}-${item.start}-${index}`}>
+                    {newSession && (
+                      <tr className="bg-primary/5">
+                        <th scope="rowgroup" colSpan={expanded ? 11 : 10} className="border-y border-primary/10 px-4 py-2 text-center text-xs font-bold uppercase tracking-wider text-primary">{session} sitting</th>
+                      </tr>
+                    )}
+                    <tr className="transition-colors hover:bg-muted/20" data-testid={`row-cause-${item.caseId}`}>
                       <td className="px-4 py-3 align-top font-mono text-xs text-muted-foreground">{index + 1}</td>
                       <td className="px-4 py-3 align-top">
                         <button type="button" onClick={() => onSelectCase(item)} className="text-left font-semibold text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" data-testid={`button-select-case-${item.caseId}`}>
                           {item.caseId}
                         </button>
-                        <div className="mt-1 text-xs text-muted-foreground">Filing: {text(record?.filingNumber)}</div>
                       </td>
+                      <td className="px-4 py-3 align-top font-mono text-xs">{text(record?.filingNumber)}</td>
+                      <td className="px-4 py-3 align-top">{text(record?.stage)}</td>
+                      <td className="px-4 py-3 align-top font-mono text-xs">{text(record?.partyId)}</td>
                       <td className="max-w-[220px] px-4 py-3 align-top text-foreground">{text(item.purpose)}</td>
                       <td className="whitespace-nowrap px-4 py-3 align-top">
                         <span className="font-medium">{item.start} – {item.end}</span>
-                        <span className="mt-1 block text-xs text-muted-foreground">{item.duration} min · {item.window}</span>
+                        <span className="mt-1 block text-xs text-muted-foreground">{blockLabel(item.block)} · {item.duration} min</span>
                       </td>
-                      <td className="px-4 py-3 align-top"><Badge variant="outline">{text(blockLabel(item.block))}</Badge></td>
+                      <td className="px-4 py-3 align-top font-mono text-xs">{text(item.advocateId)}</td>
                       <td className="px-4 py-3 align-top"><Badge variant={item.likelihood === "High" ? "default" : "secondary"}>{item.likelihood}</Badge></td>
+                      <td className="px-4 py-3 align-top">
+                        {item.defects?.length ? (
+                          <Badge variant="outline" className="border-amber-500/50 text-amber-700 dark:text-amber-300">{item.defects.length} warning{item.defects.length === 1 ? "" : "s"}</Badge>
+                        ) : <span className="text-xs text-muted-foreground">None recorded</span>}
+                      </td>
                       {expanded && (
-                        <td className="px-4 py-3 align-top text-xs text-muted-foreground">
-                          <div>Party ID: {text(record?.partyId)}</div>
-                          <div>Stage: {text(record?.stage)}</div>
-                          <div>Advocate ID: {text(item.advocateId)}</div>
+                        <td className="min-w-[260px] px-4 py-3 align-top text-xs text-muted-foreground">
+                          <div className="space-y-2">
+                            <div>
+                              <span className="font-medium text-foreground">Reasons</span>
+                              {item.reasons.length ? (
+                                <ul className="mt-1 list-disc space-y-1 pl-4">
+                                  {item.reasons.map((reason, reasonIndex) => <li key={`${reason.code}-${reasonIndex}`}>{reason.detail || reason.code}</li>)}
+                                </ul>
+                              ) : <p className="mt-1">Not recorded</p>}
+                            </div>
+                            <div>
+                              <span className="font-medium text-foreground">Warnings</span>
+                              {item.defects?.length ? (
+                                <ul className="mt-1 list-disc space-y-1 pl-4">
+                                  {item.defects.map((defect, defectIndex) => <li key={`${defect.code}-${defectIndex}`}>{defect.evidence || defect.code}</li>)}
+                                </ul>
+                              ) : <p className="mt-1">None recorded</p>}
+                            </div>
+                          </div>
                         </td>
                       )}
                     </tr>
+                    </Fragment>
                   );
                 })}
               </tbody>

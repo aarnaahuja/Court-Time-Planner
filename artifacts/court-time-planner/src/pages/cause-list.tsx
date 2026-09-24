@@ -1,10 +1,10 @@
 import { useEffect, useState, useMemo, useRef } from "react";
-import { usePreviewSchedule, useGetRules, useGetLeave, useGetScheduleImpact, type ScheduledCase, type HeldCase } from "@workspace/api-client-react";
+import { usePreviewSchedule, useGetRules, useGetLeave, useGetCases, useGetScheduleImpact, type ScheduledCase, type HeldCase } from "@workspace/api-client-react";
 import { useScheduleContext } from "@/store/schedule-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Play, FileText, Clock, AlertCircle } from "lucide-react";
+import { Calendar, CalendarDays, List, Play, Clock, AlertCircle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -13,12 +13,8 @@ import { format, isValid } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
 import { DefectChip, DefectDetails } from "@/components/defect-chip";
-
-const toMinutes = (time: string) => { const [h,m] = time.split(":").map(Number); return h * 60 + m; };
-function timeToPercent(time: string, start: number, end: number) {
-  if (!time) return 0;
-  return Math.max(0, Math.min(100, ((toMinutes(time) - start) / Math.max(1, end - start)) * 100));
-}
+import CauseListTable from "@/components/cause-list-table";
+import CourtHourlyGantt from "@/components/court-hourly-gantt";
 
 function LikelihoodDots({ level }: { level: string }) {
   const dots = level === 'High' ? 3 : level === 'Medium' ? 2 : 1;
@@ -40,7 +36,9 @@ export default function CauseListPage() {
   const { startDate, setStartDate, period, setPeriod, moves, addMove, removeMove } = useScheduleContext();
   const { data: rules, isLoading: rulesLoading } = useGetRules();
   const { data: settings } = useGetLeave();
+  const { data: roster, isLoading: rosterLoading, isError: rosterError } = useGetCases();
   const previewMutation = usePreviewSchedule();
+  const validateMoveMutation = usePreviewSchedule();
   const impactMutation = useGetScheduleImpact();
   const impactMutateFn = useRef(impactMutation.mutate);
   impactMutateFn.current = impactMutation.mutate;
@@ -52,7 +50,8 @@ export default function CauseListPage() {
   const [moveNote, setMoveNote] = useState("");
   const [showAllHeld, setShowAllHeld] = useState(false);
   const [showAllDefects, setShowAllDefects] = useState(false);
-  const dragging = useRef<string | null>(null);
+  const [isApplyingMove, setIsApplyingMove] = useState(false);
+  const [viewMode, setViewMode] = useState<"calendar" | "list">("calendar");
   const previewKey = useRef("");
   const requestedKey = JSON.stringify({ rules, startDate, period, moves });
 
@@ -112,6 +111,35 @@ export default function CauseListPage() {
     });
   };
 
+  const handleReorder = async (caseId: string, date: string, order: number) => {
+    if (!rules || isApplyingMove || previewMutation.isPending) return;
+    const existingMove = moves.find(move => move.caseId === caseId);
+    const proposedMove = { caseId, date, order, note: existingMove?.note };
+    const proposedMoves = existingMove
+      ? moves.map(move => move.caseId === caseId ? proposedMove : move)
+      : [...moves, proposedMove];
+
+    setIsApplyingMove(true);
+    try {
+      const checked = await validateMoveMutation.mutateAsync({
+        data: { period, start_date: startDate, rules, moves: proposedMoves },
+      });
+      if (!checked.days.some(day => day.date === date && day.cases.some(item => item.caseId === caseId))) {
+        throw new Error("The case did not fit the proposed sitting.");
+      }
+      addMove(proposedMove);
+      toast({ title: "Listing order changed", description: "Review the recalculated time and impact before finalising." });
+    } catch {
+      toast({
+        variant: "destructive",
+        title: "Could not change listing order",
+        description: "Nothing was changed. Try another position or check your connection.",
+      });
+    } finally {
+      setIsApplyingMove(false);
+    }
+  };
+
   const dayInfo = preview?.days.find(d => d.date === selectedDay);
   
   const displayCases = useMemo(() => {
@@ -120,23 +148,8 @@ export default function CauseListPage() {
   }, [dayInfo]);
   const casesWithDefects = displayCases.filter(c => getDefects(c).length > 0);
 
-  const casesByAdvocate = useMemo(() => {
-    const grouped: Record<string, ScheduledCase[]> = {};
-    displayCases.forEach(c => {
-      if (!grouped[c.advocateId]) grouped[c.advocateId] = [];
-      grouped[c.advocateId].push(c);
-    });
-    return grouped;
-  }, [displayCases]);
-
   if (rulesLoading) return <div className="workspace-page p-8"><Skeleton className="h-[400px] w-full" /></div>;
 
-  const axisStart = toMinutes(settings?.morningStart || "10:00");
-  const axisEnd = toMinutes(settings?.afternoonEnd || "17:30");
-  const lunchStart = settings?.morningEnd || "13:30";
-  const lunchEnd = settings?.afternoonStart || "14:00";
-  const hours = Array.from({length: Math.ceil(axisEnd / 60) - Math.floor(axisStart / 60) + 1}, (_, i) => Math.floor(axisStart / 60) + i).filter(h => h * 60 >= axisStart && h * 60 <= axisEnd);
-  const pct = (time: string) => timeToPercent(time, axisStart, axisEnd);
   const impact = impactMutation.data;
   const reasonLabel = (code: string) => ({
     OLD_CASE: "Older case", NEAR_DISPOSAL: "Close to a decision", SAME_ADVOCATE: "Same advocate",
@@ -213,16 +226,6 @@ export default function CauseListPage() {
                   <button 
                     key={d.date}
                     onClick={() => setSelectedDay(d.date)}
-                     onDragOver={e => e.preventDefault()}
-                     onDrop={e => {
-                       e.preventDefault();
-                       if (dragging.current) {
-                         addMove({ caseId: dragging.current, date: d.date, order: 0 });
-                         dragging.current = null;
-                         setSelectedDay(d.date);
-                         toast({ title: "Case moved", description: `Moved to ${d.date}. Review the impact before finalising.` });
-                       }
-                     }}
                     className={`shrink-0 flex flex-col items-start p-3 rounded-xl border transition-all min-w-[120px] ${
                       isSelected ? 'bg-primary text-primary-foreground border-primary shadow-md' : 'bg-card hover:bg-accent border-border'
                     }`}
@@ -251,6 +254,48 @@ export default function CauseListPage() {
               </div>
               <p className="text-sm text-muted-foreground">Longer, substantive matters are generally placed earlier. If the day runs late, shorter matters can be re-planned first. Appointment windows are estimates.</p>
 
+              <div className="flex flex-wrap items-center justify-between gap-3" data-testid="cause-list-view-switcher">
+                <div>
+                  <h3 className="text-sm font-semibold">Cause list view</h3>
+                  <p className="text-xs text-muted-foreground">Switch between the hearing timetable and the itemized list.</p>
+                </div>
+                <div role="group" aria-label="Cause list view" className="inline-flex max-w-full gap-1 rounded-xl border bg-muted/40 p-1">
+                  <button type="button" aria-pressed={viewMode === "calendar"} onClick={() => setViewMode("calendar")}
+                    className={`flex min-w-0 items-center gap-2 rounded-lg px-3 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${viewMode === "calendar" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:bg-card/60 hover:text-foreground"}`}
+                    data-testid="button-calendar-view">
+                    <CalendarDays className="h-4 w-4 shrink-0" aria-hidden="true" />
+                    <span className="flex flex-col"><span className="text-xs font-semibold">Calendar view</span><span className="text-[10px]">Default cause list</span></span>
+                  </button>
+                  <button type="button" aria-pressed={viewMode === "list"} onClick={() => setViewMode("list")}
+                    className={`flex min-w-0 items-center gap-2 rounded-lg px-3 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${viewMode === "list" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:bg-card/60 hover:text-foreground"}`}
+                    data-testid="button-list-view">
+                    <List className="h-4 w-4 shrink-0" aria-hidden="true" />
+                    <span className="flex flex-col"><span className="text-xs font-semibold">List view</span><span className="text-[10px]">Traditional cause list</span></span>
+                  </button>
+                </div>
+              </div>
+
+              {viewMode === "calendar" ? (
+                <CourtHourlyGantt
+                  key={dayInfo.date}
+                  date={dayInfo.date}
+                  cases={displayCases}
+                  morningStart={settings?.morningStart ?? "10:00"}
+                  afternoonEnd={settings?.afternoonEnd ?? "17:30"}
+                  movedCaseIds={moves.map(m => m.caseId)}
+                  disabled={isApplyingMove || previewMutation.isPending}
+                  onSelectCase={setSelectedCase}
+                  onReorder={handleReorder}
+                />
+              ) : rosterLoading ? (
+                <Skeleton className="h-72 w-full" />
+              ) : (
+                <>
+                  {rosterError && <p role="alert" className="text-sm text-destructive">Case record details could not be loaded. Only scheduled details are available in the list below.</p>}
+                  <CauseListTable key={dayInfo.date} date={dayInfo.date} cases={displayCases} roster={roster ?? []} onSelectCase={setSelectedCase} />
+                </>
+              )}
+
               {casesWithDefects.length > 0 && (
                 <Card>
                   <CardHeader className="pb-3">
@@ -270,125 +315,16 @@ export default function CauseListPage() {
                 </Card>
               )}
 
-              <Card className="overflow-hidden">
-                <div className="overflow-x-auto">
-                  <div className="min-w-[800px]">
-                    <div className="flex border-b sticky top-0 bg-muted/30 z-10">
-                      <div className="w-48 shrink-0 border-r p-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                          Advocate
-                      </div>
-                      <div className="flex-1 relative h-10">
-                        {hours.map(h => (
-                          <div 
-                            key={h} 
-                            className="absolute top-0 bottom-0 border-l border-border/50 px-1 pt-2 text-[10px] font-medium text-muted-foreground"
-                            style={{ left: `${pct(`${h}:00`)}%` }}
-                          >
-                            {h}:00
-                          </div>
-                        ))}
-                        {/* Lunch shading */}
-                        <div 
-                          className="absolute top-0 bottom-0 bg-muted/50 border-x border-border/50 flex items-center justify-center"
-                          style={{ left: `${pct(lunchStart)}%`, width: `${pct(lunchEnd) - pct(lunchStart)}%` }}
-                        >
-                          <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold hidden md:block">Lunch</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="divide-y border-b">
-                      {Object.entries(casesByAdvocate).map(([advocateId, advCases]) => (
-                        <div key={advocateId} className="flex min-h-[4.5rem] hover:bg-muted/10 transition-colors group relative">
-                          <div className="w-48 shrink-0 border-r p-3 text-sm font-medium flex items-center break-words">
-                            {advocateId}
-                          </div>
-                          <div className="flex-1 relative py-2">
-                            {/* Lunch shading continuation */}
-                            <div 
-                              className="absolute top-0 bottom-0 bg-muted/30 pointer-events-none"
-                              style={{ left: `${pct(lunchStart)}%`, width: `${pct(lunchEnd) - pct(lunchStart)}%` }}
-                            />
-                            
-                            {advCases.map(c => {
-                              const left = pct(c.start);
-                              const width = pct(c.end) - left;
-                              
-                              let colorClass = "bg-primary text-primary-foreground border-primary";
-                              if (c.likelihood === 'Low') colorClass = "bg-background text-foreground border-border border-2";
-                              else if (c.likelihood === 'Medium') colorClass = "bg-primary/20 text-foreground border-primary/30 border-2";
-
-                              const hasMove = moves.some(m => m.caseId === c.caseId);
-                              if (hasMove) colorClass += " ring-2 ring-amber-500 ring-offset-1";
-
-                              return (
-                                 <button
-                                   type="button"
-                                   draggable
-                                   onDragStart={e => {
-                                     dragging.current = c.caseId;
-                                     e.dataTransfer.effectAllowed = "move";
-                                     e.dataTransfer.setData("text/plain", c.caseId);
-                                   }}
-                                   onDragEnd={() => { dragging.current = null; }}
-                                   onDragOver={e => e.preventDefault()}
-                                   onDrop={e => {
-                                     e.preventDefault();
-                                     e.stopPropagation();
-                                     const source = dragging.current;
-                                     if (source && source !== c.caseId) {
-                                       addMove({ caseId: source, date: selectedDay, order: Math.max(0, dayInfo.cases.findIndex(item => item.caseId === c.caseId)) });
-                                       toast({ title: "Order changed", description: "Review its position and impact before finalising." });
-                                     }
-                                     dragging.current = null;
-                                   }}
-                                  key={c.caseId}
-                                  onClick={() => setSelectedCase(c)}
-                                   title={`${c.caseId} · ${c.purpose} · ${c.window} · ${c.likelihood} likely to go ahead${getDefects(c).length ? ` · ${getDefects(c).length} warning(s)` : ""}`}
-                                   aria-label={`${c.caseId}, ${c.purpose}, appointment ${c.window}, ${c.likelihood} likely to go ahead${getDefects(c).length ? `, ${getDefects(c).length} warnings` : ""}. Show reasons.`}
-                                   className={`absolute top-1/2 -translate-y-1/2 h-11 rounded-md cursor-pointer hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-all flex flex-col justify-center px-1 overflow-hidden shadow-sm ${colorClass}`}
-                                   style={{ left: `${left}%`, width: `${Math.max(1.5, width)}%` }}
-                                >
-                                  <div className="flex items-center justify-between gap-1">
-                                    <span className="font-semibold text-xs truncate flex items-center gap-1">
-                                      {getDefects(c).some(d => d.owner === "advocate") && <AlertCircle className="h-3 w-3 shrink-0" aria-hidden="true" />}
-                                      <FileText className="w-3 h-3 hidden sm:block shrink-0" />
-                                       {c.purpose}
-                                    </span>
-                                  </div>
-                                  {width > 7 && <span className="text-[10px] truncate leading-tight">{c.window}</span>}
-                                  <LikelihoodDots level={c.likelihood} />
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      ))}
-                      {Object.keys(casesByAdvocate).length === 0 && (
-                        <div className="p-8 text-center text-muted-foreground text-sm">
-                          No cases scheduled for this day in the timeline.
-                        </div>
-                      )}
-                    </div>
-
-                    {dayInfo.overflow.length > 0 && (
-                      <div className="flex min-h-[4rem] bg-muted/20 border-t border-dashed">
-                        <div className="w-48 shrink-0 border-r p-3 text-sm font-medium flex items-center text-amber-600">
-                          <AlertCircle className="w-4 h-4 mr-2" /> If the day runs long
-                        </div>
-                        <div className="flex-1 p-3 flex flex-wrap gap-2 items-center">
-                          <span className="text-xs text-muted-foreground">These matters need review for the next sitting:</span>
-                          {dayInfo.overflow.map(cId => (
-                              <Badge key={cId} variant="outline" className="px-3 py-1.5 bg-background shadow-sm hover:shadow cursor-pointer transition-all">
-                                {cId.split('-')[0]}
-                              </Badge>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+              {dayInfo.overflow.length > 0 && (
+                <Card className="p-4">
+                  <div className="flex flex-wrap items-center gap-2 text-sm">
+                    <AlertCircle className="h-4 w-4 text-amber-600" />
+                    <span className="font-medium text-amber-700">If the day runs long</span>
+                    <span className="text-muted-foreground">Review these matters for the next sitting:</span>
+                    {dayInfo.overflow.map(caseId => <Badge key={caseId} variant="outline">{caseId}</Badge>)}
                   </div>
-                </div>
-              </Card>
+                </Card>
+              )}
 
               {dayInfo.held.length > 0 && (
                 <Card className="overflow-hidden border-amber-200/70">

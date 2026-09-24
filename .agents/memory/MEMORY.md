@@ -1,2 +1,4 @@
 - [Mockup preview discovery](mockup-preview-discovery.md) — newly created previews may briefly render blank while the sandbox registry catches up.
 - [Court process signals](court-process-signals.md) — distinguish inferred process warnings from verified readiness; latest-hearing content is narrative, not a date.
+- [ReUI Gantt compatibility](reui-gantt-compatibility.md) — the day scale can show hours; mixed Base UI/Radix registry code needs runtime verification.
+- [Court schedule move semantics](court-schedule-moves.md) — visual drags propose listing order, not exact time; validate before storing overrides.
