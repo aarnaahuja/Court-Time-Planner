@@ -55,12 +55,6 @@ const minutesDate = (date: string, minutes: number) => {
 
 const BUFFER_MINUTES = 120;
 
-const likelihoodTone = (likelihood: string) => {
-  if (likelihood === "High") return "bg-emerald-100 text-emerald-800";
-  if (likelihood === "Medium") return "bg-amber-100 text-amber-800";
-  return "bg-slate-100 text-slate-700";
-};
-
 /**
  * Intraday court schedule. The Gantt is deliberately used as the source of
  * truth for the axis and gestures: the API persists a day/order move, not a
@@ -223,30 +217,22 @@ export function CourtHourlyGantt({
           renderEvent={({ occurrence, isDragging }) => {
             const item = occurrence.event.data;
             if (!item) return <span className="truncate">{occurrence.event.title}</span>;
-            const warned = (item.defects?.length ?? 0) > 0;
             const moved = movedCaseIds.includes(item.caseId);
             return (
               <span
-                 className={`relative flex min-w-[11rem] flex-col justify-center gap-0.5 overflow-visible rounded-md px-2 py-1 text-[11px] leading-tight text-slate-900 ${
+                 className={`relative flex min-w-[10rem] flex-col justify-center gap-0.5 overflow-visible rounded-md px-2 py-1 text-[11px] leading-tight text-slate-900 ${
                   isDragging ? "opacity-80" : ""
                 }`}
-                title={`${item.caseId} · Scheduled ${item.start}–${item.end} · ${item.purpose} · Window ${item.window} · ${item.likelihood} likelihood${warned ? ` · ${item.defects?.length} warning(s)` : ""}`}
+                 title={`${item.caseId} · Scheduled ${item.start}–${item.end} · ${item.purpose} · Window ${item.window}`}
                 data-testid={`gantt-event-${item.caseId}`}
               >
                  <span className="relative z-10 flex min-w-0 items-center gap-1 font-semibold whitespace-normal break-words">
                    <span>{item.caseId} · {item.purpose}</span>
-                  {warned && <span aria-label="Warnings" className="shrink-0 text-amber-700">!</span>}
                   {moved && <span className="shrink-0 text-amber-700">moved</span>}
                 </span>
                  <span className="relative z-10 whitespace-normal break-words text-[10px] text-slate-700">
                    {item.start}–{item.end} · Window {item.window}
                  </span>
-                 <span className="relative z-10 whitespace-normal break-words text-[10px] text-slate-700">
-                   <span className={`rounded px-1 py-0.5 font-medium ${likelihoodTone(item.likelihood)}`}>
-                     {item.likelihood}
-                   </span>
-                   {warned && ` · ${item.defects?.length} warning(s)`}
-                </span>
                  <span
                    aria-hidden="true"
                     className="pointer-events-none absolute inset-y-0 start-0 -z-0 w-full rounded-e-md bg-(--gantt-event-color)/15"
