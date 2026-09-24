@@ -230,8 +230,11 @@ export function CourtHourlyGantt({
                    <span>{item.caseId} · {item.purpose}</span>
                   {moved && <span className="shrink-0 text-amber-700">moved</span>}
                 </span>
-                 <span className="relative z-10 whitespace-normal break-words text-[10px] text-slate-700">
-                   {item.start}–{item.end} · Window {item.window}
+                  <span className="relative z-10 whitespace-nowrap text-[10px] text-slate-700">
+                    {item.start}–{item.end}
+                  </span>
+                  <span className="relative z-10 whitespace-nowrap text-[10px] text-slate-700">
+                    Window {item.window}
                  </span>
                  <span
                    aria-hidden="true"
