@@ -9,7 +9,6 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
-import { Save, Lock } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
@@ -60,18 +59,19 @@ export default function PrioritiesPage() {
   };
 
   if (isLoading) {
-    return <div className="space-y-6"><Skeleton className="h-10 w-48" /><Skeleton className="h-[400px] w-full" /></div>;
+    return <div className="workspace-page space-y-6"><Skeleton className="h-10 w-48" /><Skeleton className="h-[400px] w-full" /></div>;
   }
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-4xl">
-      <div className="flex items-center justify-between">
+    <div className="workspace-page space-y-8 max-w-4xl">
+      <div className="workspace-header flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-serif font-bold">Scheduling Priorities</h1>
-          <p className="text-muted-foreground mt-1">Configure how cases are selected and ordered for the cause list.</p>
+          <div className="workspace-breadcrumb">Court time planner <span aria-hidden="true">/</span> Priorities</div>
+          <h1 className="workspace-title">Scheduling Priorities</h1>
+          <p className="workspace-subtitle">Configure how cases are selected and ordered for the cause list.</p>
         </div>
-        <Button onClick={handleSave} disabled={saveRules.isPending} className="gap-2">
-          <Save className="w-4 h-4" /> Save Rules
+        <Button onClick={handleSave} disabled={saveRules.isPending}>
+          Save Rules
         </Button>
       </div>
 
@@ -130,7 +130,7 @@ export default function PrioritiesPage() {
                 onValueChange={(vals) => setFormData(p => ({ ...p, oldCaseShare: vals[0] }))}
               />
               <div className="flex justify-between text-xs text-muted-foreground">
-                 <span className="flex items-center gap-1" title="Older cases can't be pushed back below this. It's a court-wide rule."><Lock className="w-3 h-3" /> 25% minimum</span>
+                  <span title="Older cases can't be pushed back below this. It's a court-wide rule.">25% minimum</span>
                 <span>75%</span>
               </div>
             </CardContent>

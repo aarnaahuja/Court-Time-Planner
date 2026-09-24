@@ -37,15 +37,16 @@ export default function ImpactPage() {
   const impact = impactMutation.data;
 
   if (impactMutation.isPending && !impact) {
-    return <div className="p-8 space-y-6"><Skeleton className="h-12 w-64" /><Skeleton className="h-64 w-full" /></div>;
+    return <div className="workspace-page p-8 space-y-6"><Skeleton className="h-12 w-64" /><Skeleton className="h-64 w-full" /></div>;
   }
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="flex items-center justify-between">
+    <div className="workspace-page space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="workspace-header flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-serif font-bold">Schedule Impact</h1>
-          <p className="text-muted-foreground mt-1">Consequences of your priority rules and manual moves</p>
+          <div className="workspace-breadcrumb">Schedule / Impact</div>
+          <h1 className="workspace-title text-3xl font-bold">Schedule Impact</h1>
+          <p className="workspace-subtitle text-muted-foreground mt-1">Consequences of your priority rules and manual moves</p>
         </div>
         <Button onClick={handleRefresh} variant="outline" className="gap-2" disabled={impactMutation.isPending}>
           <Activity className="w-4 h-4" /> Refresh Analysis
@@ -69,11 +70,11 @@ export default function ImpactPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                      <div className="text-sm text-muted-foreground mb-1">Hearings in simulation</div>
-                    <div className="text-3xl font-bold font-serif">{impact.recommended.heard}</div>
+                    <div className="text-3xl font-bold">{impact.recommended.heard}</div>
                   </div>
                   <div>
                      <div className="text-sm text-muted-foreground mb-1">Substantive in simulation</div>
-                    <div className="text-3xl font-bold font-serif text-amber-600">{impact.recommended.forward}</div>
+                    <div className="text-3xl font-bold text-amber-600">{impact.recommended.forward}</div>
                   </div>
                   <div>
                     <div className="text-sm text-muted-foreground mb-1">Old Cases Touched</div>
@@ -100,11 +101,11 @@ export default function ImpactPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                      <div className="text-sm text-muted-foreground mb-1">Hearings in simulation</div>
-                    <div className="text-3xl font-bold font-serif">{impact.choice.heard}</div>
+                    <div className="text-3xl font-bold">{impact.choice.heard}</div>
                   </div>
                   <div>
                      <div className="text-sm text-muted-foreground mb-1">Substantive in simulation</div>
-                    <div className="text-3xl font-bold font-serif text-amber-600">{impact.choice.forward}</div>
+                    <div className="text-3xl font-bold text-amber-600">{impact.choice.forward}</div>
                   </div>
                   <div>
                     <div className="text-sm text-muted-foreground mb-1">Old Cases Touched</div>
@@ -175,7 +176,7 @@ export default function ImpactPage() {
                 <div>
                   <div className="flex justify-between items-end mb-2">
                     <div className="font-medium text-sm text-muted-foreground">Extra Advocate Trips Created</div>
-                    <div className="text-2xl font-bold font-serif text-destructive">{impact.extraTrips}</div>
+                    <div className="text-2xl font-bold text-destructive">{impact.extraTrips}</div>
                   </div>
                   <p className="text-sm text-muted-foreground">
                      Advocates whose listed matter changes date. Extra trips are possible, not confirmed.

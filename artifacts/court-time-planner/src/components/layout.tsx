@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Calendar, Users, SlidersHorizontal, List, Activity, CheckCircle, Moon, Sun, Menu, X } from "lucide-react";
+import { LayoutDashboard, Calendar, Users, SlidersHorizontal, List, Activity, CheckCircle, Moon, Sun, Menu, X, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { ReactNode, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 
@@ -19,9 +19,9 @@ const BRAND_EMBLEM_SRC = `${import.meta.env.BASE_URL}branding/court-emblem-white
 
 export function Layout({ children }: { children: ReactNode }) {
   const [location] = useLocation();
-  const [role, setRole] = useState(() => localStorage.getItem("planner-role") || "Judge");
   const [dark, setDark] = useState(() => document.documentElement.classList.contains("dark") || localStorage.getItem("planner-theme") === "dark");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => localStorage.getItem("planner-sidebar-collapsed") === "true");
 
   const toggleTheme = () => {
     document.documentElement.classList.toggle("dark", !dark);
@@ -34,99 +34,105 @@ export function Layout({ children }: { children: ReactNode }) {
     setMobileMenuOpen(false);
   }, [location]);
 
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMobileMenuOpen(false);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [mobileMenuOpen]);
+
+  const toggleSidebar = () => {
+    setCollapsed(current => {
+      localStorage.setItem("planner-sidebar-collapsed", String(!current));
+      return !current;
+    });
+  };
+
   return (
-    <div className="flex min-h-[100dvh] bg-background text-foreground flex-col md:flex-row font-sans selection:bg-primary/20">
+    <div className="planner-shell flex h-[100dvh] overflow-hidden bg-background text-foreground flex-col md:flex-row font-sans selection:bg-primary/20">
       {/* Mobile Top Bar */}
-      <header className="print-hidden md:hidden flex items-center justify-between p-3 border-b border-border bg-[#162b46] text-white sticky top-0 z-40">
+      <header className="print-hidden md:hidden flex items-center justify-between px-4 py-3 border-b border-border bg-card text-foreground sticky top-0 z-40">
         <div className="flex items-center gap-2.5 min-w-0">
-          <img src={BRAND_EMBLEM_SRC} alt="National emblem" className="h-8 w-8 object-contain shrink-0" />
-          <h1 className="font-serif font-semibold text-[17px] tracking-tight truncate">Cause List Configuration</h1>
+          <span className="w-9 h-9 rounded-md bg-[#162b46] flex items-center justify-center shrink-0"><img src={BRAND_EMBLEM_SRC} alt="National emblem" className="h-7 w-7 object-contain" /></span>
+          <h1 className="font-semibold text-[14px] tracking-tight truncate">Cause List Configuration</h1>
         </div>
-        <Button variant="ghost" size="icon" className="text-white hover:bg-white/10 hover:text-white" onClick={() => setMobileMenuOpen(true)} aria-label="Open navigation" aria-expanded={mobileMenuOpen} aria-controls="planner-navigation">
-          <Menu className="w-6 h-6" />
+        <Button variant="ghost" size="icon" onClick={() => setMobileMenuOpen(true)} aria-label="Open navigation" aria-expanded={mobileMenuOpen} aria-controls="planner-navigation">
+          <Menu className="w-5 h-5" />
         </Button>
       </header>
 
       {/* Sidebar (Desktop) / Drawer (Mobile) */}
-      <aside id="planner-navigation" className={`fixed inset-y-0 left-0 z-50 w-72 md:w-64 bg-sidebar border-r border-border flex flex-col transition-transform duration-300 ease-in-out md:translate-x-0 md:static ${mobileMenuOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'}`}>
-        <div className="m-4 mb-3 p-4 rounded-2xl flex items-center justify-between bg-[#162b46] text-white shadow-lg shadow-[#162b46]/20 md:block">
-          <div className="flex items-center gap-3">
-            <img src={BRAND_EMBLEM_SRC} alt="National emblem" className="w-10 h-10 object-contain shrink-0" />
-            <div>
-              <h1 className="font-serif font-bold text-[16px] leading-tight tracking-tight">Cause List Configuration</h1>
-              <p className="text-[11px] text-white/65 font-medium uppercase tracking-wider">Justice Sehgal's Chamber</p>
+      <aside id="planner-navigation" className={`print-hidden fixed inset-y-0 left-0 z-50 w-72 bg-sidebar border-r border-border flex flex-col transition-[transform,width] duration-200 ease-out md:sticky md:top-0 md:h-full md:shrink-0 md:translate-x-0 md:visible ${collapsed ? 'md:w-[72px]' : 'md:w-60'} ${mobileMenuOpen ? 'translate-x-0 visible' : '-translate-x-full invisible'}`}>
+        <div className="border-b border-border px-3 py-4">
+          <div className={`flex items-center gap-2 ${collapsed ? 'md:justify-center' : ''}`}>
+            <span className="w-10 h-10 rounded-md bg-[#162b46] flex items-center justify-center shrink-0">
+              <img src={BRAND_EMBLEM_SRC} alt="National emblem" className="w-8 h-8 object-contain" />
+            </span>
+            <div className={`min-w-0 ${collapsed ? 'md:hidden' : ''}`}>
+              <h1 className="font-semibold text-[13px] leading-tight tracking-tight">Cause List Configuration</h1>
             </div>
+            <Button variant="ghost" size="icon" className="md:hidden ml-auto" onClick={() => setMobileMenuOpen(false)} aria-label="Close navigation">
+              <X className="w-5 h-5" />
+            </Button>
           </div>
-          <Button variant="ghost" size="icon" className="md:hidden text-white hover:bg-white/10 hover:text-white" onClick={() => setMobileMenuOpen(false)} aria-label="Close navigation">
-            <X className="w-5 h-5" />
-          </Button>
         </div>
 
-        <nav className="flex-1 px-4 py-2 space-y-1 overflow-y-auto">
+        <nav aria-label="Main navigation" className="min-h-0 flex-1 px-2.5 py-4 space-y-0.5 overflow-y-auto md:overflow-hidden">
           {navItems.map((item) => {
             const isActive = location === item.path || (item.path !== "/" && location.startsWith(item.path));
             return (
               <Link 
                 key={item.path} 
                 href={item.path} 
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-[15px] font-medium transition-all duration-200 ${
+                title={collapsed ? item.label : undefined}
+                aria-current={isActive ? "page" : undefined}
+                className={`flex items-center gap-3 px-3 py-2 rounded-md text-[13px] font-medium transition-colors focus-visible:outline-2 focus-visible:outline-primary ${collapsed ? 'md:justify-center md:px-0' : ''} ${
                   isActive 
-                    ? 'bg-primary text-primary-foreground shadow-sm shadow-primary/20' 
-                    : 'text-sidebar-foreground hover:bg-black/5 dark:hover:bg-white/10 active:scale-95'
+                    ? 'bg-sidebar-accent text-foreground font-semibold'
+                    : 'text-muted-foreground hover:bg-sidebar-accent/70 hover:text-foreground'
                 }`}
               >
-                <item.icon className={`w-[18px] h-[18px] ${isActive ? 'opacity-100' : 'opacity-70'}`} />
-                {item.label}
+                <item.icon className="w-[16px] h-[16px] shrink-0" aria-hidden="true" />
+                <span className={collapsed ? 'md:sr-only' : ''}>{item.label}</span>
               </Link>
             );
           })}
         </nav>
 
-        <div className="p-4 m-4 mt-auto rounded-2xl bg-card border shadow-sm text-sm space-y-4">
-          <div className="text-center pb-2 border-b border-border/50">
-            <p className="font-semibold text-[13px]">Justice Sehgal</p>
-            <p className="text-[11px] text-muted-foreground mt-0.5">Chamber Dashboard</p>
-          </div>
-          
-          <div className="space-y-3">
-            <div className="space-y-1.5">
-              <label className="block text-[11px] uppercase tracking-wider text-muted-foreground font-semibold px-1" htmlFor="role-switch">Role</label>
-              <select 
-                id="role-switch" 
-                value={role} 
-                onChange={e => { setRole(e.target.value); localStorage.setItem("planner-role", e.target.value); }} 
-                className="w-full bg-sidebar/50 border-0 ring-1 ring-inset ring-border rounded-lg p-2 text-[14px] text-foreground focus:ring-2 focus:ring-primary outline-none transition-all"
-              >
-                <option>Judge</option>
-                <option>Court Master</option>
-              </select>
-            </div>
-            <button 
-              type="button" 
-              onClick={toggleTheme} 
-              className="flex items-center justify-between w-full rounded-lg px-3 py-2 text-[14px] font-medium text-foreground hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-all" 
-              aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
-            >
-              <span className="flex items-center gap-2 text-muted-foreground">
-                {dark ? <Sun className="w-[18px] h-[18px]" /> : <Moon className="w-[18px] h-[18px]" />}
-                {dark ? "Light Theme" : "Dark Theme"}
-              </span>
+        <div className={`mt-auto border-t border-border p-3 text-sm ${collapsed ? 'md:px-2' : ''}`}>
+          <div className={`flex items-center gap-2 ${collapsed ? 'md:justify-center' : ''}`}>
+            <span className={`min-w-0 px-2 text-[13px] font-semibold ${collapsed ? 'md:sr-only' : ''}`}>Justice Sehgal</span>
+            <button type="button" className={`hidden md:flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-primary focus-visible:outline-2 focus-visible:outline-primary ${collapsed ? '' : 'ml-auto'}`} onClick={toggleSidebar} aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} aria-expanded={!collapsed} title={collapsed ? "Expand sidebar" : "Collapse sidebar"}>
+              {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
             </button>
           </div>
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className={`mt-2 flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-[12px] font-medium text-muted-foreground hover:bg-sidebar-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-primary ${collapsed ? 'md:justify-center' : ''}`}
+            aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
+            title={collapsed ? (dark ? "Light Theme" : "Dark Theme") : undefined}
+          >
+            {dark ? <Sun className="h-4 w-4 shrink-0" /> : <Moon className="h-4 w-4 shrink-0" />}
+            <span className={collapsed ? 'md:sr-only' : ''}>{dark ? "Light Theme" : "Dark Theme"}</span>
+          </button>
         </div>
       </aside>
 
       {/* Overlay for mobile */}
       {mobileMenuOpen && (
         <div 
-          className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 md:hidden"
+          className="fixed inset-0 bg-black/25 z-40 md:hidden"
+          aria-hidden="true"
           onClick={() => setMobileMenuOpen(false)}
         />
       )}
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col min-w-0 bg-background md:rounded-tl-[2.5rem] md:shadow-[-8px_0_24px_-12px_rgba(0,0,0,0.1)] overflow-hidden border-l border-border relative z-0">
-        <div className="flex-1 p-4 sm:p-6 md:p-10 max-w-5xl w-full mx-auto overflow-auto scroll-smooth">
+      <main className="relative z-0 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background">
+        <div className="mx-auto min-h-0 w-full max-w-[1440px] flex-1 overflow-y-auto p-4 scroll-smooth sm:p-6 lg:p-8">
           {children}
         </div>
       </main>

@@ -99,15 +99,17 @@ def planned(request, rows, settings, moves, waiting):
     rng = random.Random(42)
     selected = set()
     forced_ids = {m["caseId"] for m in moves}
+    waiting_ids = {item["id"] for item in waiting}
     days = []
     for date in dates:
         current = [m for m in moves if m["date"] == date.isoformat()]
-        pool = [c for c in cases if c.case_number not in selected and c.case_number not in forced_ids]
+        pool = [c for c in cases if c.case_number not in selected and c.case_number not in forced_ids
+                and c.case_number not in waiting_ids]
         proposed = sched.build(date, pool, rng)
         forced = []
         for m in sorted(current, key=lambda item: item["order"]):
             c = lookup.get(m["caseId"])
-            if not c or c.case_number in selected:
+            if not c or c.case_number in selected or c.case_number in waiting_ids:
                 continue
             ht, hazards, full = sched.estimate(c, date)
             estimated = E.expected_minutes(hazards, full)
@@ -149,15 +151,16 @@ def planned(request, rows, settings, moves, waiting):
             selected.add(c.case_number)
         next_day = next((d.isoformat() for d in dates if d > date), "Later sitting")
         held = [
-            {"caseId": c.case_number, "reason": {"code": "DAY_FULL", "detail": "Held for a later sitting"},
-             "readyDate": next_day}
-            for c in cases if c.case_number not in selected and c.case_number not in forced_ids
-        ][:8]
-        held += [
             {"caseId": c["id"], "reason": {"code": "WAITING_WARRANT", "detail": c["waitingOn"]},
              "readyDate": "Confirm with registry"}
             for c in waiting
-        ][:4]
+        ]
+        held += [
+            {"caseId": c.case_number, "reason": {"code": "DAY_FULL", "detail": "Held for a later sitting"},
+             "readyDate": next_day}
+            for c in cases if c.case_number not in selected and c.case_number not in forced_ids
+            and c.case_number not in waiting_ids
+        ]
         used = sum(s["duration"] for s in scheduled)
         days.append({"date": date.isoformat(), "cases": scheduled, "held": held,
                      "fullness": min(100, round(used / p.day_minutes * 100)), "overflow": overflow})

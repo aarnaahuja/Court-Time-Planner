@@ -47,6 +47,7 @@ export default function CauseListPage() {
   const [selectedCase, setSelectedCase] = useState<ScheduledCase | null>(null);
   const [moveDate, setMoveDate] = useState<string>("");
   const [moveNote, setMoveNote] = useState("");
+  const [showAllHeld, setShowAllHeld] = useState(false);
   const dragging = useRef<string | null>(null);
   const previewKey = useRef("");
   const requestedKey = JSON.stringify({ rules, startDate, period, moves });
@@ -123,7 +124,7 @@ export default function CauseListPage() {
     return grouped;
   }, [displayCases]);
 
-  if (rulesLoading) return <div className="p-8"><Skeleton className="h-[400px] w-full" /></div>;
+  if (rulesLoading) return <div className="workspace-page p-8"><Skeleton className="h-[400px] w-full" /></div>;
 
   const axisStart = toMinutes(settings?.morningStart || "10:00");
   const axisEnd = toMinutes(settings?.afternoonEnd || "17:30");
@@ -139,11 +140,12 @@ export default function CauseListPage() {
   }[code] || "Scheduling reason");
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-12">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+    <div className="workspace-page space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-12">
+      <div className="workspace-header flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-serif font-bold">Cause List Preview</h1>
-          <p className="text-muted-foreground mt-1">Review and adjust the generated schedule</p>
+          <div className="workspace-breadcrumb">Schedule / Cause list</div>
+          <h1 className="workspace-title text-3xl font-bold">Cause List Preview</h1>
+          <p className="workspace-subtitle text-muted-foreground mt-1">Review and adjust the generated schedule</p>
         </div>
         <div className="flex items-center gap-3">
           <Input 
@@ -242,6 +244,45 @@ export default function CauseListPage() {
                 </div>
               </div>
               <p className="text-sm text-muted-foreground">Longer, substantive matters are generally placed earlier. If the day runs late, shorter matters can be re-planned first. Appointment windows are estimates.</p>
+
+              {dayInfo.held.length > 0 && (
+                <Card className="overflow-hidden border-amber-200/70">
+                  <CardHeader className="border-b bg-amber-50/60 pb-3 dark:bg-amber-950/20">
+                    <div className="flex items-center gap-2">
+                      <CardTitle className="flex items-center gap-2 text-base"><Anchor className="h-4 w-4 text-amber-700" /> Not immediately listed</CardTitle>
+                      <Badge variant="outline" className="border-amber-200 bg-card text-amber-800">{dayInfo.held.length}</Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground">Process warnings are inferred from hearing notes and need registry confirmation. Other cases may be deferred because the selected day is full.</p>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    <ul className="divide-y divide-border">
+                      {(showAllHeld ? dayInfo.held : dayInfo.held.slice(0, 4)).map(h => (
+                        <li key={h.caseId} className="flex items-start justify-between gap-4 px-5 py-3">
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Link href={`/roster/${encodeURIComponent(h.caseId)}`} className="text-sm font-semibold text-primary hover:underline">{h.caseId}</Link>
+                              <Badge variant="outline" className={h.reason.code === "WAITING_WARRANT" ? "border-amber-200 text-amber-800" : "text-muted-foreground"}>{reasonLabel(h.reason.code)}</Badge>
+                            </div>
+                            <p className="mt-1 text-xs text-muted-foreground">{h.reason.detail}</p>
+                          </div>
+                          <span className="shrink-0 text-right text-xs text-muted-foreground">
+                            {h.reason.code === "WAITING_WARRANT"
+                              ? "Confirm with registry"
+                              : isValid(new Date(h.readyDate))
+                                ? `Consider from ${format(new Date(`${h.readyDate}T12:00:00`), "MMM d, yyyy")}`
+                                : "Consider at a later sitting"}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                    {dayInfo.held.length > 4 && (
+                      <button type="button" aria-expanded={showAllHeld} onClick={() => setShowAllHeld(value => !value)} className="w-full border-t px-5 py-2.5 text-left text-xs font-medium text-primary hover:bg-muted/50">
+                        {showAllHeld ? "Show fewer cases" : `Show all ${dayInfo.held.length} cases`}
+                      </button>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
 
               <Card className="overflow-hidden">
                 <div className="overflow-x-auto">
@@ -362,38 +403,6 @@ export default function CauseListPage() {
                 </div>
               </Card>
 
-              <Card className="border-dashed">
-                <CardHeader className="bg-muted/30 pb-4 border-b">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Anchor className="w-5 h-5 text-muted-foreground" /> Held / Waiting Cases
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-0">
-                  <div className="divide-y">
-                    {dayInfo.held.map((h, i) => (
-                      <div key={i} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-muted/10 transition-colors">
-                        <div>
-                          <div className="font-semibold flex items-center gap-2">
-                            {h.caseId.split('-')[0]}
-                             <Badge variant="secondary" className="font-normal">{reasonLabel(h.reason.code)}</Badge>
-                          </div>
-                          <div className="text-sm text-muted-foreground mt-1">{h.reason.detail}</div>
-                        </div>
-                        <div className="text-sm font-medium text-amber-700 bg-amber-50 dark:bg-amber-950 dark:text-amber-300 px-3 py-1.5 rounded-md border border-amber-200 dark:border-amber-900 shrink-0">
-                          Ready: {
-                            h.readyDate.toLowerCase().includes('confirm') || !isValid(new Date(h.readyDate))
-                              ? h.readyDate 
-                              : format(new Date(h.readyDate), 'MMM d, yyyy')
-                          }
-                        </div>
-                      </div>
-                    ))}
-                    {dayInfo.held.length === 0 && (
-                      <div className="p-8 text-center text-muted-foreground text-sm">No cases held back.</div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
             </div>
           )}
         </>
@@ -405,7 +414,7 @@ export default function CauseListPage() {
           {selectedCase && (
             <>
               <SheetHeader className="mb-6 border-b pb-4 mt-4">
-                <SheetTitle className="font-serif text-2xl">Case {selectedCase.caseId.split('-')[0]}</SheetTitle>
+                <SheetTitle className="text-2xl">Case {selectedCase.caseId.split('-')[0]}</SheetTitle>
                 <SheetDescription className="flex items-center gap-2 text-base">
                   <Clock className="w-4 h-4" /> {selectedCase.start} – {selectedCase.end} ({selectedCase.duration} mins)
                 </SheetDescription>

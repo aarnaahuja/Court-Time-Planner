@@ -8,47 +8,83 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Clock, FileText, AlertTriangle, User, Calendar } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
+import { format } from "date-fns";
+
+const displayDate = (date: string) => format(new Date(`${date}T12:00:00`), "d MMM yyyy");
 
 export default function CaseDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { data: caseInfo, isLoading, isError } = useGetCase(id || "");
-  const { startDate, period } = useScheduleContext();
+  const { startDate, period, moves } = useScheduleContext();
   const { data: rules } = useGetRules();
   const preview = usePreviewSchedule();
   useEffect(() => {
-    if (rules) preview.mutate({ data: { period, start_date: startDate, rules } });
-  }, [rules, period, startDate]);
+    if (rules) preview.mutate({ data: { period, start_date: startDate, rules, moves } });
+  }, [rules, period, startDate, moves]);
 
   if (isLoading) {
-    return <div className="space-y-6"><Skeleton className="h-10 w-48" /><Skeleton className="h-[400px] w-full" /></div>;
+    return <div className="workspace-page space-y-6"><Skeleton className="h-10 w-48" /><Skeleton className="h-[400px] w-full" /></div>;
   }
 
   if (isError || !caseInfo) {
-    return <div className="p-8 text-center text-destructive">Failed to load case {id}</div>;
+    return <div className="workspace-page p-8 text-center text-destructive">Failed to load case {id}</div>;
   }
-  const suggested = preview.data?.days.flatMap(d => d.cases).find(c => c.caseId === caseInfo.id);
+  const suggested = !preview.isPending && !preview.isError
+    ? preview.data?.days.flatMap(d => d.cases).find(c => c.caseId === caseInfo.id)
+    : undefined;
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-4xl mx-auto">
-      <div className="flex items-center gap-4">
+    <div className="workspace-page space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-4xl mx-auto">
+      <div className="workspace-header flex items-center gap-4">
         <Button variant="ghost" size="icon" asChild>
           <Link href="/roster"><ArrowLeft className="w-5 h-5" /></Link>
         </Button>
         <div>
-          <h1 className="text-3xl font-serif font-bold flex items-center gap-3">
+          <div className="workspace-breadcrumb">Roster / Case detail</div>
+          <h1 className="workspace-title text-3xl font-bold flex items-center gap-3">
             {caseInfo.filingNumber}
-            {caseInfo.flags.map(f => <Badge key={f} variant="secondary">{f}</Badge>)}
+            {caseInfo.flags.map(f => <Badge key={f} variant="secondary">{f === "WAITING_WARRANT" ? "Process to confirm" : f === "OLD_CASE" ? "4+ years old" : f.replaceAll("_", " ").toLowerCase()}</Badge>)}
           </h1>
-          <p className="text-muted-foreground mt-1">Filed on {new Date(caseInfo.filingDate).toLocaleDateString()}</p>
+          <p className="workspace-subtitle text-muted-foreground mt-1">Filed on {displayDate(caseInfo.filingDate)}</p>
         </div>
       </div>
 
       <div className="grid gap-6 md:grid-cols-[2fr_1fr]">
         <div className="space-y-6">
           <Card>
-            <CardHeader><CardTitle>Next recommended listing</CardTitle></CardHeader>
-            <CardContent className="text-sm">
-              {suggested ? <><div className="font-semibold text-base">{suggested.date} · {suggested.window} ({suggested.block})</div><p className="text-muted-foreground mt-2">{suggested.reasons.map(r => r.detail).join(" · ")}</p></> : <p className="text-muted-foreground">{preview.isPending ? "Checking the selected schedule…" : caseInfo.waitingOn ? `${caseInfo.waitingOn}. Confirm with the registry before listing.` : `Not listed in the selected ${period} beginning ${startDate}. Review the cause list for later dates.`}</p>}
+            <CardHeader>
+              <CardTitle>Case timeline</CardTitle>
+              <p className="text-xs text-muted-foreground">Only recorded dates and the selected preview date are shown. Earlier hearing dates were not supplied.</p>
+            </CardHeader>
+            <CardContent>
+              <ol className="text-sm">
+                <li className="flex gap-4">
+                  <div className="flex flex-col items-center" aria-hidden="true"><span className="mt-1 h-3 w-3 shrink-0 rounded-full bg-primary" /><span className="my-1 w-px flex-1 bg-border" /></div>
+                  <div className="pb-6"><time dateTime={caseInfo.filingDate} className="text-xs font-medium text-primary">{displayDate(caseInfo.filingDate)}</time><p className="font-semibold">Case filed</p></div>
+                </li>
+                {caseInfo.history.map((event, index) => (
+                  <li key={index} className="flex gap-4">
+                    <div className="flex flex-col items-center" aria-hidden="true"><span className="mt-1 h-3 w-3 shrink-0 rounded-full border-2 border-primary bg-card" /><span className="my-1 w-px flex-1 bg-border" /></div>
+                    <div className="min-w-0 pb-6"><p className="text-xs font-medium text-muted-foreground">Date not supplied</p><p className="font-semibold">Latest hearing note</p><p className="mt-1 text-muted-foreground">{event}</p></div>
+                  </li>
+                ))}
+                <li className="flex gap-4">
+                  <div aria-hidden="true"><span className={`mt-1 block h-3 w-3 shrink-0 rounded-full ${caseInfo.waitingOn ? "bg-amber-500" : "bg-primary"}`} /></div>
+                  <div className="min-w-0">
+                    {preview.isPending || !rules ? (
+                      <p className="text-muted-foreground">Checking the selected schedule…</p>
+                    ) : preview.isError ? (
+                      <p className="text-destructive">The selected schedule could not be loaded. Try again from the cause list.</p>
+                    ) : caseInfo.waitingOn ? (
+                      <><p className="text-xs font-medium text-amber-700">No listing date yet</p><p className="font-semibold">Process confirmation needed</p><p className="mt-1 text-muted-foreground">{caseInfo.waitingOn}. This warning is inferred from the hearing note; confirm with the registry before listing.</p></>
+                    ) : suggested ? (
+                      <><time dateTime={suggested.date} className="text-xs font-medium text-primary">{displayDate(suggested.date)}</time><p className="font-semibold">Proposed listing · {suggested.window} ({suggested.block})</p><p className="mt-1 text-muted-foreground">{suggested.reasons.map(r => r.detail).join(" · ")}</p></>
+                    ) : (
+                      <><p className="text-xs font-medium text-muted-foreground">No listing date in this preview</p><p className="font-semibold">Not listed in the selected {period}</p><p className="mt-1 text-muted-foreground">Preview begins {displayDate(startDate)}. Review the cause list for a later sitting.</p></>
+                    )}
+                  </div>
+                </li>
+              </ol>
             </CardContent>
           </Card>
           <Card>
@@ -94,26 +130,6 @@ export default function CaseDetailPage() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-           <CardTitle>Available hearing note</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {caseInfo.history.map((event, idx) => (
-                  <div key={idx} className="flex gap-4">
-                    <div className="mt-1 flex flex-col items-center">
-                      <div className="w-2 h-2 rounded-full bg-primary" />
-                      {idx !== caseInfo.history.length - 1 && <div className="w-px h-full bg-border my-1" />}
-                    </div>
-                    <div className="pb-4 text-sm">{event}</div>
-                  </div>
-                ))}
-                 <p className="text-xs text-muted-foreground">The sample roster contains one latest-hearing summary, not a dated history of every hearing.</p>
-                 {caseInfo.history.length === 0 && <div className="text-muted-foreground text-sm">No hearing note available.</div>}
-              </div>
-            </CardContent>
-          </Card>
         </div>
 
         <div className="space-y-6">
@@ -126,14 +142,14 @@ export default function CaseDetailPage() {
                 <div className="text-sm font-medium text-muted-foreground flex items-center gap-2 mb-1">
                   <Clock className="w-4 h-4" /> Age
                 </div>
-                <div className="text-2xl font-bold font-serif">{caseInfo.ageYears} Years</div>
+                <div className="text-2xl font-bold">{caseInfo.ageYears} Years</div>
               </div>
               <Separator />
               <div>
                 <div className="text-sm font-medium text-muted-foreground flex items-center gap-2 mb-1">
                   <Calendar className="w-4 h-4" /> Total Hearings
                 </div>
-                <div className="text-2xl font-bold font-serif">{caseInfo.totalHearings}</div>
+                <div className="text-2xl font-bold">{caseInfo.totalHearings}</div>
               </div>
               <Separator />
               <div>

@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Calendar as CalendarIcon, Save, ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { format, addMonths, startOfMonth, endOfMonth, eachDayOfInterval } from "date-fns";
@@ -70,27 +70,26 @@ export default function CalendarPage() {
   const gridDays = eachDayOfInterval({ start: startOfMonth(month), end: endOfMonth(month) });
 
   if (isCalLoading || isLeaveLoading) {
-    return <div className="space-y-6"><Skeleton className="h-10 w-48" /><Skeleton className="h-[400px] w-full" /></div>;
+    return <div className="workspace-page space-y-6"><Skeleton className="h-10 w-48" /><Skeleton className="h-[400px] w-full" /></div>;
   }
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="flex items-center justify-between">
+    <div className="workspace-page space-y-8">
+      <div className="workspace-header flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-serif font-bold">Calendar & Hours</h1>
-          <p className="text-muted-foreground mt-1">Manage your sitting schedule and leave days</p>
+          <div className="workspace-breadcrumb">Court time planner <span aria-hidden="true">/</span> Calendar</div>
+          <h1 className="workspace-title">Calendar & Hours</h1>
+          <p className="workspace-subtitle">Manage your sitting schedule and leave days</p>
         </div>
-        <Button onClick={handleSave} disabled={saveLeave.isPending} className="gap-2">
-          <Save className="w-4 h-4" /> Save Settings
+        <Button onClick={handleSave} disabled={saveLeave.isPending}>
+          Save Settings
         </Button>
       </div>
 
       <div className="grid gap-6 md:grid-cols-[1fr_300px]">
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <CalendarIcon className="w-5 h-5 text-primary" /> Availability
-            </CardTitle>
+            <CardTitle>Availability</CardTitle>
             <CardDescription>Select days you are on leave. Holidays and weekends are automatically blocked.</CardDescription>
               <div className="flex items-center justify-between pt-3">
                 <Button variant="outline" size="icon" aria-label="Previous month" onClick={() => setMonth(addMonths(month, -1))}><ChevronLeft className="w-4 h-4" /></Button>
@@ -144,8 +143,8 @@ export default function CalendarPage() {
             <CardTitle>Sitting Hours</CardTitle>
             <CardDescription>Define daily court session times.</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="space-y-4">
+            <CardContent className="space-y-5">
+            <div className="space-y-3">
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Morning Session</h3>
               <div className="grid gap-3">
                 <div className="space-y-1">
@@ -167,7 +166,7 @@ export default function CalendarPage() {
               </div>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-3">
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Afternoon Session</h3>
               <div className="grid gap-3">
                 <div className="space-y-1">

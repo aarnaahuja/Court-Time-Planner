@@ -50,7 +50,7 @@ export default function FinalisePage() {
            <Button variant="ghost" onClick={() => setView('success')} className="gap-2"><ArrowLeft className="w-4 h-4" /> Back</Button>
            <Button onClick={() => window.print()}><Printer className="w-4 h-4 mr-2" /> Print or save as PDF</Button>
          </div>
-         <div className="print-sheet bg-white text-black p-8 md:p-12 shadow-sm border font-serif rounded-md">
+         <div className="print-sheet bg-white text-black p-8 md:p-12 shadow-sm border rounded-md">
           <div className="text-center mb-8 border-b-2 border-black pb-6">
              <h1 className="text-2xl font-bold uppercase tracking-wider mb-2">Cause List</h1>
             <p className="text-lg">Before Justice Sehgal</p>
@@ -101,7 +101,7 @@ export default function FinalisePage() {
 
   if (list && view === 'notify') {
     return (
-      <div className="max-w-2xl mx-auto space-y-6 animate-in fade-in">
+      <div className="workspace-page max-w-2xl mx-auto space-y-6 animate-in fade-in">
         <Button variant="ghost" onClick={() => setView('success')} className="gap-2">
            <ArrowLeft className="w-4 h-4" /> Back
         </Button>
@@ -119,7 +119,7 @@ export default function FinalisePage() {
             </div>
             <div className="border rounded-md p-4 bg-muted/30">
               <div className="text-sm font-semibold text-muted-foreground mb-2">Email Preview</div>
-              <p className="font-serif text-sm leading-relaxed whitespace-pre-wrap">
+               <p className="text-sm leading-relaxed whitespace-pre-wrap">
                 Dear Advocate,
                 
                  The cause list for the upcoming sitting before Justice Sehgal has been finalised.
@@ -138,10 +138,10 @@ export default function FinalisePage() {
 
   if (list && view === 'success') {
     return (
-      <div className="max-w-2xl mx-auto mt-12 animate-in zoom-in-95 duration-500">
+      <div className="workspace-page max-w-2xl mx-auto mt-12 animate-in zoom-in-95 duration-500">
         <Card className="text-center border-primary bg-primary/5 p-8">
           <CheckCircle className="w-16 h-16 text-primary mx-auto mb-6" />
-          <h2 className="text-3xl font-serif font-bold text-foreground mb-2">List Finalised</h2>
+          <h2 className="text-3xl font-bold text-foreground mb-2">List Finalised</h2>
           <p className="text-muted-foreground mb-8">
             The cause list starting {format(new Date(startDate), 'MMMM d, yyyy')} has been finalised for the registry.
           </p>
@@ -161,10 +161,11 @@ export default function FinalisePage() {
   }
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-4xl mx-auto">
-      <div>
-        <h1 className="text-3xl font-serif font-bold">Finalise Schedule</h1>
-        <p className="text-muted-foreground mt-1">Review your changes and seal the cause list.</p>
+    <div className="workspace-page space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-4xl mx-auto">
+      <div className="workspace-header">
+        <div className="workspace-breadcrumb">Schedule / Finalise</div>
+        <h1 className="workspace-title text-3xl font-bold">Finalise Schedule</h1>
+        <p className="workspace-subtitle text-muted-foreground mt-1">Review your changes and seal the cause list.</p>
       </div>
 
       <Card>
