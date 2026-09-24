@@ -5,6 +5,7 @@
  * Court Time Planner API
  * OpenAPI spec version: 0.1.0
  */
+import type { Defect } from './defect';
 import type { Reason } from './reason';
 
 export interface Case {
@@ -22,4 +23,5 @@ export interface Case {
   waitingOn: string;
   history: string[];
   reasons: Reason[];
+  defects: Defect[];
 }

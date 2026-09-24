@@ -58,7 +58,7 @@ def hhmm(value):
     return f"{value // 60:02d}:{value % 60:02d}"
 
 
-def serialize_case(c, listing, day, start, end, adjacent):
+def serialize_case(c, listing, day, start, end, adjacent, defects):
     age = c.age_years(day)
     reasons = []
     if age >= 4:
@@ -70,6 +70,9 @@ def serialize_case(c, listing, day, start, end, adjacent):
     reasons.append({"code": "ENGINE_PRIORITY", "detail": "Selected using the supplied hearing reference and expected sitting time; confirm readiness with the registry"})
     m0 = start // 30 * 30
     chance = listing.p_sub
+    likelihood = "High" if chance >= .65 else "Medium" if chance >= .4 else "Low"
+    if any(d["owner"] == "advocate" for d in defects):
+        likelihood = {"High": "Medium", "Medium": "Low", "Low": "Low"}[likelihood]
     return {
         "caseId": c.case_number,
         "date": day.isoformat(),
@@ -77,15 +80,16 @@ def serialize_case(c, listing, day, start, end, adjacent):
         "end": hhmm(end),
         "window": f"{hhmm(m0)}–{hhmm(m0 + 30)}",
         "block": "Morning" if listing.slot == 0 else "Afternoon",
-        "likelihood": "High" if chance >= .65 else "Medium" if chance >= .4 else "Low",
+        "likelihood": likelihood,
         "duration": end - start,
         "reasons": reasons,
         "advocateId": c.advocate,
         "purpose": c.purpose.replace("_", " ").title(),
+        "defects": defects,
     }
 
 
-def planned(request, rows, settings, moves, waiting):
+def planned(request, rows, settings, moves, waiting, defects):
     dates = period_days(request, settings)
     if not dates:
         return {"days": [], "recommendedCount": 0,
@@ -147,17 +151,18 @@ def planned(request, rows, settings, moves, waiting):
             clock += length
             item.slot = 0 if begin < afternoon else 1
             scheduled.append(serialize_case(c, item, date, begin, clock,
-                                            any(s["advocateId"] == c.advocate for s in scheduled)))
+                                            any(s["advocateId"] == c.advocate for s in scheduled),
+                                            defects.get(c.case_number, [])))
             selected.add(c.case_number)
         next_day = next((d.isoformat() for d in dates if d > date), "Later sitting")
         held = [
-            {"caseId": c["id"], "reason": {"code": "WAITING_WARRANT", "detail": c["waitingOn"]},
-             "readyDate": "Confirm with registry"}
+            {"caseId": c["id"], "reason": c["reason"], "readyDate": c["readyDate"],
+             "defects": defects.get(c["id"], [])}
             for c in waiting
         ]
         held += [
             {"caseId": c.case_number, "reason": {"code": "DAY_FULL", "detail": "Held for a later sitting"},
-             "readyDate": next_day}
+             "readyDate": next_day, "defects": defects.get(c.case_number, [])}
             for c in cases if c.case_number not in selected and c.case_number not in forced_ids
             and c.case_number not in waiting_ids
         ]
@@ -221,7 +226,8 @@ def main():
     active = [r for r in rows if r["case_number"] not in excluded]
     settings = payload["settings"]
     if payload["action"] == "preview":
-        result = planned(payload["request"], active, settings, payload.get("moves", []), waiting)
+        result = planned(payload["request"], active, settings, payload.get("moves", []), waiting,
+                         payload.get("defects", {}))
     elif payload["action"] == "project":
         result = project(payload["request"], active, settings, payload.get("moves", []))
     else:

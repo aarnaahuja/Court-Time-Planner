@@ -38,6 +38,15 @@ export const GetDashboardResponse = zod.object({
   "reasons": zod.array(zod.object({
   "code": zod.string(),
   "detail": zod.string()
+})),
+  "defects": zod.array(zod.object({
+  "code": zod.enum(['PROCESS_PENDING', 'EXTERNAL_WAIT', 'PARTY_ABSENT', 'NOT_READY', 'TIME_SOUGHT', 'REPEAT_ADJOURNED']),
+  "confidence": zod.enum(['record', 'likely', 'stage_risk']),
+  "evidence": zod.string(),
+  "owner": zod.enum(['court_staff', 'agency', 'advocate', 'judge']),
+  "clears_when": zod.string(),
+  "limitedData": zod.boolean(),
+  "stuck": zod.boolean()
 }))
 }))
 })
@@ -131,6 +140,15 @@ export const GetCasesResponseItem = zod.object({
   "reasons": zod.array(zod.object({
   "code": zod.string(),
   "detail": zod.string()
+})),
+  "defects": zod.array(zod.object({
+  "code": zod.enum(['PROCESS_PENDING', 'EXTERNAL_WAIT', 'PARTY_ABSENT', 'NOT_READY', 'TIME_SOUGHT', 'REPEAT_ADJOURNED']),
+  "confidence": zod.enum(['record', 'likely', 'stage_risk']),
+  "evidence": zod.string(),
+  "owner": zod.enum(['court_staff', 'agency', 'advocate', 'judge']),
+  "clears_when": zod.string(),
+  "limitedData": zod.boolean(),
+  "stuck": zod.boolean()
 }))
 })
 export const GetCasesResponse = zod.array(GetCasesResponseItem)
@@ -157,6 +175,15 @@ export const GetCaseResponse = zod.object({
   "reasons": zod.array(zod.object({
   "code": zod.string(),
   "detail": zod.string()
+})),
+  "defects": zod.array(zod.object({
+  "code": zod.enum(['PROCESS_PENDING', 'EXTERNAL_WAIT', 'PARTY_ABSENT', 'NOT_READY', 'TIME_SOUGHT', 'REPEAT_ADJOURNED']),
+  "confidence": zod.enum(['record', 'likely', 'stage_risk']),
+  "evidence": zod.string(),
+  "owner": zod.enum(['court_staff', 'agency', 'advocate', 'judge']),
+  "clears_when": zod.string(),
+  "limitedData": zod.boolean(),
+  "stuck": zod.boolean()
 }))
 })
 
@@ -246,7 +273,16 @@ export const PreviewScheduleResponse = zod.object({
   "detail": zod.string()
 })),
   "advocateId": zod.string(),
-  "purpose": zod.string()
+  "purpose": zod.string(),
+  "defects": zod.array(zod.object({
+  "code": zod.enum(['PROCESS_PENDING', 'EXTERNAL_WAIT', 'PARTY_ABSENT', 'NOT_READY', 'TIME_SOUGHT', 'REPEAT_ADJOURNED']),
+  "confidence": zod.enum(['record', 'likely', 'stage_risk']),
+  "evidence": zod.string(),
+  "owner": zod.enum(['court_staff', 'agency', 'advocate', 'judge']),
+  "clears_when": zod.string(),
+  "limitedData": zod.boolean(),
+  "stuck": zod.boolean()
+})).optional()
 })),
   "held": zod.array(zod.object({
   "caseId": zod.string(),
@@ -254,7 +290,16 @@ export const PreviewScheduleResponse = zod.object({
   "code": zod.string(),
   "detail": zod.string()
 }),
-  "readyDate": zod.string()
+  "readyDate": zod.string(),
+  "defects": zod.array(zod.object({
+  "code": zod.enum(['PROCESS_PENDING', 'EXTERNAL_WAIT', 'PARTY_ABSENT', 'NOT_READY', 'TIME_SOUGHT', 'REPEAT_ADJOURNED']),
+  "confidence": zod.enum(['record', 'likely', 'stage_risk']),
+  "evidence": zod.string(),
+  "owner": zod.enum(['court_staff', 'agency', 'advocate', 'judge']),
+  "clears_when": zod.string(),
+  "limitedData": zod.boolean(),
+  "stuck": zod.boolean()
+})).optional()
 })),
   "fullness": zod.number().int(),
   "overflow": zod.array(zod.string())
@@ -378,7 +423,16 @@ export const PublishScheduleResponse = zod.object({
   "detail": zod.string()
 })),
   "advocateId": zod.string(),
-  "purpose": zod.string()
+  "purpose": zod.string(),
+  "defects": zod.array(zod.object({
+  "code": zod.enum(['PROCESS_PENDING', 'EXTERNAL_WAIT', 'PARTY_ABSENT', 'NOT_READY', 'TIME_SOUGHT', 'REPEAT_ADJOURNED']),
+  "confidence": zod.enum(['record', 'likely', 'stage_risk']),
+  "evidence": zod.string(),
+  "owner": zod.enum(['court_staff', 'agency', 'advocate', 'judge']),
+  "clears_when": zod.string(),
+  "limitedData": zod.boolean(),
+  "stuck": zod.boolean()
+})).optional()
 })),
   "held": zod.array(zod.object({
   "caseId": zod.string(),
@@ -386,7 +440,16 @@ export const PublishScheduleResponse = zod.object({
   "code": zod.string(),
   "detail": zod.string()
 }),
-  "readyDate": zod.string()
+  "readyDate": zod.string(),
+  "defects": zod.array(zod.object({
+  "code": zod.enum(['PROCESS_PENDING', 'EXTERNAL_WAIT', 'PARTY_ABSENT', 'NOT_READY', 'TIME_SOUGHT', 'REPEAT_ADJOURNED']),
+  "confidence": zod.enum(['record', 'likely', 'stage_risk']),
+  "evidence": zod.string(),
+  "owner": zod.enum(['court_staff', 'agency', 'advocate', 'judge']),
+  "clears_when": zod.string(),
+  "limitedData": zod.boolean(),
+  "stuck": zod.boolean()
+})).optional()
 })),
   "fullness": zod.number().int(),
   "overflow": zod.array(zod.string())
@@ -413,7 +476,16 @@ export const GetPublicationsResponseItem = zod.object({
   "detail": zod.string()
 })),
   "advocateId": zod.string(),
-  "purpose": zod.string()
+  "purpose": zod.string(),
+  "defects": zod.array(zod.object({
+  "code": zod.enum(['PROCESS_PENDING', 'EXTERNAL_WAIT', 'PARTY_ABSENT', 'NOT_READY', 'TIME_SOUGHT', 'REPEAT_ADJOURNED']),
+  "confidence": zod.enum(['record', 'likely', 'stage_risk']),
+  "evidence": zod.string(),
+  "owner": zod.enum(['court_staff', 'agency', 'advocate', 'judge']),
+  "clears_when": zod.string(),
+  "limitedData": zod.boolean(),
+  "stuck": zod.boolean()
+})).optional()
 })),
   "held": zod.array(zod.object({
   "caseId": zod.string(),
@@ -421,7 +493,16 @@ export const GetPublicationsResponseItem = zod.object({
   "code": zod.string(),
   "detail": zod.string()
 }),
-  "readyDate": zod.string()
+  "readyDate": zod.string(),
+  "defects": zod.array(zod.object({
+  "code": zod.enum(['PROCESS_PENDING', 'EXTERNAL_WAIT', 'PARTY_ABSENT', 'NOT_READY', 'TIME_SOUGHT', 'REPEAT_ADJOURNED']),
+  "confidence": zod.enum(['record', 'likely', 'stage_risk']),
+  "evidence": zod.string(),
+  "owner": zod.enum(['court_staff', 'agency', 'advocate', 'judge']),
+  "clears_when": zod.string(),
+  "limitedData": zod.boolean(),
+  "stuck": zod.boolean()
+})).optional()
 })),
   "fullness": zod.number().int(),
   "overflow": zod.array(zod.string())
@@ -448,7 +529,16 @@ export const GetPublicationsResponseItem = zod.object({
   "detail": zod.string()
 })),
   "advocateId": zod.string(),
-  "purpose": zod.string()
+  "purpose": zod.string(),
+  "defects": zod.array(zod.object({
+  "code": zod.enum(['PROCESS_PENDING', 'EXTERNAL_WAIT', 'PARTY_ABSENT', 'NOT_READY', 'TIME_SOUGHT', 'REPEAT_ADJOURNED']),
+  "confidence": zod.enum(['record', 'likely', 'stage_risk']),
+  "evidence": zod.string(),
+  "owner": zod.enum(['court_staff', 'agency', 'advocate', 'judge']),
+  "clears_when": zod.string(),
+  "limitedData": zod.boolean(),
+  "stuck": zod.boolean()
+})).optional()
 })),
   "held": zod.array(zod.object({
   "caseId": zod.string(),
@@ -456,7 +546,16 @@ export const GetPublicationsResponseItem = zod.object({
   "code": zod.string(),
   "detail": zod.string()
 }),
-  "readyDate": zod.string()
+  "readyDate": zod.string(),
+  "defects": zod.array(zod.object({
+  "code": zod.enum(['PROCESS_PENDING', 'EXTERNAL_WAIT', 'PARTY_ABSENT', 'NOT_READY', 'TIME_SOUGHT', 'REPEAT_ADJOURNED']),
+  "confidence": zod.enum(['record', 'likely', 'stage_risk']),
+  "evidence": zod.string(),
+  "owner": zod.enum(['court_staff', 'agency', 'advocate', 'judge']),
+  "clears_when": zod.string(),
+  "limitedData": zod.boolean(),
+  "stuck": zod.boolean()
+})).optional()
 })),
   "fullness": zod.number().int(),
   "overflow": zod.array(zod.string())

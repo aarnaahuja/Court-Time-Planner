@@ -3,15 +3,16 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 import { db, plannerStateTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
+import { classifyDefects, isCourtHold, type Defect } from "./defects";
 
 export type Rules = { name: string; preset: "balanced" | "block" | "advocate" | "new"; fullness: "light" | "balanced" | "packed"; oldCaseShare: number; groupAdvocates: boolean; order: "complex-first" | "short-first" };
 export type Settings = { leaveDays: string[]; morningStart: string; morningEnd: string; afternoonStart: string; afternoonEnd: string };
 export type Move = { caseId: string; date: string; order: number; note?: string };
 export type Request = { period: "day" | "week" | "month"; start_date: string; rules: Rules };
 export type Reason = { code: string; detail: string };
-export type Case = { id: string; filingNumber: string; filingDate: string; advocateId: string; partyId: string; stage: string; purpose: string; lastHearing: string; totalHearings: number; ageYears: number; flags: string[]; waitingOn: string; history: string[]; reasons: Reason[] };
-export type Slot = { caseId: string; date: string; start: string; end: string; window: string; block: string; likelihood: "High" | "Medium" | "Low"; duration: number; reasons: Reason[]; advocateId: string; purpose: string };
-export type Day = { date: string; cases: Slot[]; held: { caseId: string; reason: Reason; readyDate: string }[]; fullness: number; overflow: string[] };
+export type Case = { id: string; filingNumber: string; filingDate: string; advocateId: string; partyId: string; stage: string; purpose: string; lastHearing: string; totalHearings: number; ageYears: number; flags: string[]; waitingOn: string; history: string[]; reasons: Reason[]; defects: Defect[] };
+export type Slot = { caseId: string; date: string; start: string; end: string; window: string; block: string; likelihood: "High" | "Medium" | "Low"; duration: number; reasons: Reason[]; advocateId: string; purpose: string; defects: Defect[] };
+export type Day = { date: string; cases: Slot[]; held: { caseId: string; reason: Reason; readyDate: string; defects: Defect[] }[]; fullness: number; overflow: string[] };
 export type Row = Record<string, string>;
 
 const dataDir = path.resolve(process.cwd(), "data");
@@ -48,6 +49,8 @@ export function parseCsv(csv: string): Row[] {
 
 const rosterColumns = ["case_number", "filing_number", "filing_date", "advocate_id", "party_id", "current_stage", "last_hearing_summary", "purpose_of_next_hearing", "total_hearings_held"];
 const validPurposes = new Set(parseCsv(file("hearing_type_reference")).map(r => r["Hearing Purpose"].trim().toUpperCase().replace(/[ -]/g, "_")));
+const hearingTypes = parseCsv(file("hearing_type_reference"));
+const failureReasons = parseCsv(file("hearing_failure_reasons"));
 export function validateRoster(csv: string) {
   const rows = parseCsv(csv);
   const header = csv.slice(0, csv.indexOf("\n") >= 0 ? csv.indexOf("\n") : undefined);
@@ -110,12 +113,15 @@ export function cases(rows: Row[], asOf = today()): Case[] {
   return rows.map(r => {
     const age = ageYears(r.filing_date, asOf);
     const summary = r.last_hearing_summary || "";
-    const processPending = /warrant|summons|process/i.test(summary) && /await|pending|not served|return|issue/i.test(summary);
-    const flags = [...(age >= 4 ? ["OLD_CASE"] : []), ...(processPending ? ["WAITING_WARRANT"] : [])];
+    const defects = classifyDefects(r, failureReasons, hearingTypes);
+    const hold = defects.find(isCourtHold);
+    const flags = [...(age >= 4 ? ["OLD_CASE"] : []), ...(hold ? [hold.code === "PROCESS_PENDING" ? "WAITING_WARRANT" : "EXTERNAL_WAIT"] : [])];
     const reasons: Reason[] = age >= 4 ? [{ code: "OLD_CASE", detail: `${Math.floor(age)} years since filing` }] : [];
     if (/JUDG/i.test(r.purpose_of_next_hearing)) reasons.push({ code: "NEAR_DISPOSAL", detail: "Judgment is the next listed purpose" });
-    if (processPending) reasons.push({ code: "WAITING_WARRANT", detail: "The last hearing mentions process; confirm service before listing" });
-    return { id: r.case_number, filingNumber: r.filing_number, filingDate: r.filing_date, advocateId: r.advocate_id, partyId: r.party_id, stage: r.current_stage, purpose: r.purpose_of_next_hearing, lastHearing: summary, totalHearings: Number(r.total_hearings_held), ageYears: Math.round(age * 10) / 10, flags, waitingOn: processPending ? "Process status needs confirmation" : "", history: summary ? [summary] : [], reasons };
+    if (hold) reasons.push({ code: hold.code, detail: `${hold.evidence} — ${hold.clears_when}` });
+    const waitingOn = hold?.code === "PROCESS_PENDING" ? "Summons or warrant return needs confirmation"
+      : hold?.code === "EXTERNAL_WAIT" ? "Outside report receipt needs confirmation" : "";
+    return { id: r.case_number, filingNumber: r.filing_number, filingDate: r.filing_date, advocateId: r.advocate_id, partyId: r.party_id, stage: r.current_stage, purpose: r.purpose_of_next_hearing, lastHearing: summary, totalHearings: Number(r.total_hearings_held), ageYears: Math.round(age * 10) / 10, flags, waitingOn, history: summary ? [summary] : [], reasons, defects };
   });
 }
 export function summary(items: Case[]) {
@@ -148,9 +154,14 @@ function engine<T>(action: "preview" | "project", request: Request, rows: Row[],
       try { resolve(JSON.parse(output) as T); } catch { reject(new Error("Python engine returned an invalid result.")); }
     });
     worker.stdin.on("error", () => {});
+    const roster = cases(rows, request.start_date);
     worker.stdin.end(JSON.stringify({
       action, request, rows, settings, moves,
-      waiting: cases(rows, request.start_date).filter(c => c.waitingOn).map(c => ({ id: c.id, waitingOn: c.waitingOn })),
+      defects: Object.fromEntries(roster.map(c => [c.id, c.defects])),
+      waiting: roster.flatMap(c => {
+        const hold = c.defects.find(isCourtHold);
+        return hold ? [{ id: c.id, reason: { code: hold.code, detail: hold.evidence }, readyDate: hold.clears_when }] : [];
+      }),
     }));
   });
 }

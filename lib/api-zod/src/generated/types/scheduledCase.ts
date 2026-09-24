@@ -5,6 +5,7 @@
  * Court Time Planner API
  * OpenAPI spec version: 0.1.0
  */
+import type { Defect } from './defect';
 import type { Reason } from './reason';
 import type { ScheduledCaseLikelihood } from './scheduledCaseLikelihood';
 
@@ -20,4 +21,5 @@ export interface ScheduledCase {
   reasons: Reason[];
   advocateId: string;
   purpose: string;
+  defects?: Defect[];
 }

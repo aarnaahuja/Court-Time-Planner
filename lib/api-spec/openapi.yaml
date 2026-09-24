@@ -193,9 +193,20 @@ components:
       properties:
         code: { type: string }
         detail: { type: string }
+    Defect:
+      type: object
+      required: [code, confidence, evidence, owner, clears_when, limitedData, stuck]
+      properties:
+        code: { type: string, enum: [PROCESS_PENDING, EXTERNAL_WAIT, PARTY_ABSENT, NOT_READY, TIME_SOUGHT, REPEAT_ADJOURNED] }
+        confidence: { type: string, enum: [record, likely, stage_risk] }
+        evidence: { type: string }
+        owner: { type: string, enum: [court_staff, agency, advocate, judge] }
+        clears_when: { type: string }
+        limitedData: { type: boolean }
+        stuck: { type: boolean }
     Case:
       type: object
-      required: [id, filingNumber, filingDate, advocateId, partyId, stage, purpose, lastHearing, totalHearings, ageYears, flags, waitingOn, history, reasons]
+      required: [id, filingNumber, filingDate, advocateId, partyId, stage, purpose, lastHearing, totalHearings, ageYears, flags, waitingOn, history, reasons, defects]
       properties:
         id: { type: string }
         filingNumber: { type: string }
@@ -217,6 +228,9 @@ components:
         reasons:
           type: array
           items: { $ref: "#/components/schemas/Reason" }
+        defects:
+          type: array
+          items: { $ref: "#/components/schemas/Defect" }
     CountGroup:
       type: object
       required: [label, count]
@@ -314,6 +328,9 @@ components:
           items: { $ref: "#/components/schemas/Reason" }
         advocateId: { type: string }
         purpose: { type: string }
+        defects:
+          type: array
+          items: { $ref: "#/components/schemas/Defect" }
     HeldCase:
       type: object
       required: [caseId, reason, readyDate]
@@ -321,6 +338,9 @@ components:
         caseId: { type: string }
         reason: { $ref: "#/components/schemas/Reason" }
         readyDate: { type: string }
+        defects:
+          type: array
+          items: { $ref: "#/components/schemas/Defect" }
     ScheduleDay:
       type: object
       required: [date, cases, held, fullness, overflow]

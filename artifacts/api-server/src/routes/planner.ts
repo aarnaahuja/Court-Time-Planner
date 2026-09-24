@@ -91,7 +91,7 @@ router.post("/schedule/preview", async (req, res): Promise<void> => {
     bad(res, "Move cases to a working day within the chosen period."); return;
   }
   const schedule = await makeSchedule(parsed.data as Request, await getRoster(), settings, moves as Move[]);
-  if (!movesFit(schedule, moves as Move[])) { bad(res, "A moved case cannot fit or needs process confirmation. Try another sitting day."); return; }
+  if (!movesFit(schedule, moves as Move[])) { bad(res, "A moved case cannot fit or needs confirmation of a court-side defect. Check the selected day and case status."); return; }
   res.json(PreviewScheduleResponse.parse(schedule));
 });
 router.post("/schedule/impact", async (req, res): Promise<void> => {
@@ -104,7 +104,7 @@ router.post("/schedule/impact", async (req, res): Promise<void> => {
   const lastDate = addDays(proposed_schedule.start_date, proposed_schedule.period === "day" ? 0 : proposed_schedule.period === "week" ? 6 : 29);
   if (moves.some(m => m.date < proposed_schedule.start_date || m.date > lastDate || !isWorking(m.date, settings))) { bad(res, "Move cases to a working day within the chosen period."); return; }
   const rows = await getRoster();
-  if (!movesFit(await makeSchedule(proposed_schedule as Request, rows, settings, moves as Move[]), moves as Move[])) { bad(res, "A moved case cannot fit or needs process confirmation. Try another sitting day."); return; }
+  if (!movesFit(await makeSchedule(proposed_schedule as Request, rows, settings, moves as Move[]), moves as Move[])) { bad(res, "A moved case cannot fit or needs confirmation of a court-side defect. Check the selected day and case status."); return; }
   res.json(GetScheduleImpactResponse.parse(await impact(proposed_schedule as Request, rows, settings, moves as Move[])));
 });
 router.post("/schedule/publish", async (req, res): Promise<void> => {
@@ -118,7 +118,7 @@ router.post("/schedule/publish", async (req, res): Promise<void> => {
   if (moves.some(m => m.date < proposed_schedule.start_date || m.date > lastDate || !isWorking(m.date, settings))) { bad(res, "Move cases to a working day within the chosen period."); return; }
   const rows = await getRoster();
   const schedule = await makeSchedule(proposed_schedule as Request, rows, settings, moves as Move[]);
-  if (!movesFit(schedule, moves as Move[])) { bad(res, "A moved case cannot fit or needs process confirmation. Try another sitting day."); return; }
+  if (!movesFit(schedule, moves as Move[])) { bad(res, "A moved case cannot fit or needs confirmation of a court-side defect. Check the selected day and case status."); return; }
   const result = PublishScheduleResponse.parse({ id: crypto.randomUUID(), publishedAt: new Date().toISOString(), days: schedule.days });
   const audit = await getAudit();
   const baseline = await makeSchedule({ ...proposed_schedule, rules: defaults } as Request, rows, settings);

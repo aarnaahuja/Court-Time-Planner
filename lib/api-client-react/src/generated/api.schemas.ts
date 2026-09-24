@@ -14,6 +14,47 @@ export interface Reason {
   detail: string;
 }
 
+export type DefectCode = typeof DefectCode[keyof typeof DefectCode];
+
+
+export const DefectCode = {
+  PROCESS_PENDING: 'PROCESS_PENDING',
+  EXTERNAL_WAIT: 'EXTERNAL_WAIT',
+  PARTY_ABSENT: 'PARTY_ABSENT',
+  NOT_READY: 'NOT_READY',
+  TIME_SOUGHT: 'TIME_SOUGHT',
+  REPEAT_ADJOURNED: 'REPEAT_ADJOURNED',
+} as const;
+
+export type DefectConfidence = typeof DefectConfidence[keyof typeof DefectConfidence];
+
+
+export const DefectConfidence = {
+  record: 'record',
+  likely: 'likely',
+  stage_risk: 'stage_risk',
+} as const;
+
+export type DefectOwner = typeof DefectOwner[keyof typeof DefectOwner];
+
+
+export const DefectOwner = {
+  court_staff: 'court_staff',
+  agency: 'agency',
+  advocate: 'advocate',
+  judge: 'judge',
+} as const;
+
+export interface Defect {
+  code: DefectCode;
+  confidence: DefectConfidence;
+  evidence: string;
+  owner: DefectOwner;
+  clears_when: string;
+  limitedData: boolean;
+  stuck: boolean;
+}
+
 export interface Case {
   id: string;
   filingNumber: string;
@@ -29,6 +70,7 @@ export interface Case {
   waitingOn: string;
   history: string[];
   reasons: Reason[];
+  defects: Defect[];
 }
 
 export interface CountGroup {
@@ -159,12 +201,14 @@ export interface ScheduledCase {
   reasons: Reason[];
   advocateId: string;
   purpose: string;
+  defects?: Defect[];
 }
 
 export interface HeldCase {
   caseId: string;
   reason: Reason;
   readyDate: string;
+  defects?: Defect[];
 }
 
 export interface ScheduleDay {

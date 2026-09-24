@@ -1,10 +1,10 @@
 import { useEffect, useState, useMemo, useRef } from "react";
-import { usePreviewSchedule, useGetRules, useGetLeave, useGetScheduleImpact, type ScheduledCase } from "@workspace/api-client-react";
+import { usePreviewSchedule, useGetRules, useGetLeave, useGetScheduleImpact, type ScheduledCase, type HeldCase } from "@workspace/api-client-react";
 import { useScheduleContext } from "@/store/schedule-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Play, FileText, Anchor, Clock, AlertCircle } from "lucide-react";
+import { Calendar, Play, FileText, Clock, AlertCircle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 import { format, isValid } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
+import { DefectChip, DefectDetails } from "@/components/defect-chip";
 
 const toMinutes = (time: string) => { const [h,m] = time.split(":").map(Number); return h * 60 + m; };
 function timeToPercent(time: string, start: number, end: number) {
@@ -33,6 +34,8 @@ function LikelihoodDots({ level }: { level: string }) {
   );
 }
 
+const getDefects = (item: ScheduledCase | HeldCase) => item.defects ?? [];
+
 export default function CauseListPage() {
   const { startDate, setStartDate, period, setPeriod, moves, addMove, removeMove } = useScheduleContext();
   const { data: rules, isLoading: rulesLoading } = useGetRules();
@@ -48,6 +51,7 @@ export default function CauseListPage() {
   const [moveDate, setMoveDate] = useState<string>("");
   const [moveNote, setMoveNote] = useState("");
   const [showAllHeld, setShowAllHeld] = useState(false);
+  const [showAllDefects, setShowAllDefects] = useState(false);
   const dragging = useRef<string | null>(null);
   const previewKey = useRef("");
   const requestedKey = JSON.stringify({ rules, startDate, period, moves });
@@ -114,6 +118,7 @@ export default function CauseListPage() {
     if (!dayInfo) return [];
     return dayInfo.cases;
   }, [dayInfo]);
+  const casesWithDefects = displayCases.filter(c => getDefects(c).length > 0);
 
   const casesByAdvocate = useMemo(() => {
     const grouped: Record<string, ScheduledCase[]> = {};
@@ -137,6 +142,7 @@ export default function CauseListPage() {
     OLD_CASE: "Older case", NEAR_DISPOSAL: "Close to a decision", SAME_ADVOCATE: "Same advocate",
     READY: "Ready for review", ENGINE_PRIORITY: "Engine priority", WAITING_WARRANT: "Process needs checking", DAY_FULL: "Day is full",
     CARRIED_OVER: "Carried forward", LEAVE_DAY: "Leave day",
+    PROCESS_PENDING: "Summons / warrant not returned", EXTERNAL_WAIT: "Waiting on outside report",
   }[code] || "Scheduling reason");
 
   return (
@@ -245,41 +251,21 @@ export default function CauseListPage() {
               </div>
               <p className="text-sm text-muted-foreground">Longer, substantive matters are generally placed earlier. If the day runs late, shorter matters can be re-planned first. Appointment windows are estimates.</p>
 
-              {dayInfo.held.length > 0 && (
-                <Card className="overflow-hidden border-amber-200/70">
-                  <CardHeader className="border-b bg-amber-50/60 pb-3 dark:bg-amber-950/20">
-                    <div className="flex items-center gap-2">
-                      <CardTitle className="flex items-center gap-2 text-base"><Anchor className="h-4 w-4 text-amber-700" /> Not immediately listed</CardTitle>
-                      <Badge variant="outline" className="border-amber-200 bg-card text-amber-800">{dayInfo.held.length}</Badge>
-                    </div>
-                    <p className="text-xs text-muted-foreground">Process warnings are inferred from hearing notes and need registry confirmation. Other cases may be deferred because the selected day is full.</p>
+              {casesWithDefects.length > 0 && (
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center gap-2 text-base"><AlertCircle className="h-4 w-4 text-amber-600" /> Listed with warnings <Badge variant="outline">{casesWithDefects.length}</Badge></CardTitle>
+                    <p className="text-xs text-muted-foreground">These are not confirmed blockers. Advocate-side warnings lower the estimated likelihood by one level; open a case to review the evidence and next step.</p>
                   </CardHeader>
-                  <CardContent className="p-0">
-                    <ul className="divide-y divide-border">
-                      {(showAllHeld ? dayInfo.held : dayInfo.held.slice(0, 4)).map(h => (
-                        <li key={h.caseId} className="flex items-start justify-between gap-4 px-5 py-3">
-                          <div className="min-w-0">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <Link href={`/roster/${encodeURIComponent(h.caseId)}`} className="text-sm font-semibold text-primary hover:underline">{h.caseId}</Link>
-                              <Badge variant="outline" className={h.reason.code === "WAITING_WARRANT" ? "border-amber-200 text-amber-800" : "text-muted-foreground"}>{reasonLabel(h.reason.code)}</Badge>
-                            </div>
-                            <p className="mt-1 text-xs text-muted-foreground">{h.reason.detail}</p>
-                          </div>
-                          <span className="shrink-0 text-right text-xs text-muted-foreground">
-                            {h.reason.code === "WAITING_WARRANT"
-                              ? "Confirm with registry"
-                              : isValid(new Date(h.readyDate))
-                                ? `Consider from ${format(new Date(`${h.readyDate}T12:00:00`), "MMM d, yyyy")}`
-                                : "Consider at a later sitting"}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                    {dayInfo.held.length > 4 && (
-                      <button type="button" aria-expanded={showAllHeld} onClick={() => setShowAllHeld(value => !value)} className="w-full border-t px-5 py-2.5 text-left text-xs font-medium text-primary hover:bg-muted/50">
-                        {showAllHeld ? "Show fewer cases" : `Show all ${dayInfo.held.length} cases`}
+                  <CardContent className="space-y-2">
+                    {(showAllDefects ? casesWithDefects : casesWithDefects.slice(0, 4)).map(c => (
+                      <button type="button" key={c.caseId} onClick={() => setSelectedCase(c)} className="flex w-full flex-wrap items-center gap-2 rounded-md border px-3 py-2 text-left hover:bg-muted/40">
+                        <span className="mr-1 text-sm font-medium text-primary">{c.caseId}</span>
+                        {getDefects(c).slice(0, 2).map(d => <DefectChip key={d.code} defect={d} />)}
+                        {getDefects(c).length > 2 && <span className="text-xs text-muted-foreground">+{getDefects(c).length - 2} more</span>}
                       </button>
-                    )}
+                    ))}
+                    {casesWithDefects.length > 4 && <button type="button" aria-expanded={showAllDefects} onClick={() => setShowAllDefects(value => !value)} className="text-xs font-medium text-primary hover:underline">{showAllDefects ? "Show fewer" : `Show all ${casesWithDefects.length} warned cases`}</button>}
                   </CardContent>
                 </Card>
               )}
@@ -358,13 +344,14 @@ export default function CauseListPage() {
                                    }}
                                   key={c.caseId}
                                   onClick={() => setSelectedCase(c)}
-                                   title={`${c.caseId} · ${c.purpose} · ${c.window} · ${c.likelihood} likely to go ahead`}
-                                   aria-label={`${c.caseId}, ${c.purpose}, appointment ${c.window}, ${c.likelihood} likely to go ahead. Show reasons.`}
+                                   title={`${c.caseId} · ${c.purpose} · ${c.window} · ${c.likelihood} likely to go ahead${getDefects(c).length ? ` · ${getDefects(c).length} warning(s)` : ""}`}
+                                   aria-label={`${c.caseId}, ${c.purpose}, appointment ${c.window}, ${c.likelihood} likely to go ahead${getDefects(c).length ? `, ${getDefects(c).length} warnings` : ""}. Show reasons.`}
                                    className={`absolute top-1/2 -translate-y-1/2 h-11 rounded-md cursor-pointer hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-all flex flex-col justify-center px-1 overflow-hidden shadow-sm ${colorClass}`}
                                    style={{ left: `${left}%`, width: `${Math.max(1.5, width)}%` }}
                                 >
                                   <div className="flex items-center justify-between gap-1">
                                     <span className="font-semibold text-xs truncate flex items-center gap-1">
+                                      {getDefects(c).some(d => d.owner === "advocate") && <AlertCircle className="h-3 w-3 shrink-0" aria-hidden="true" />}
                                       <FileText className="w-3 h-3 hidden sm:block shrink-0" />
                                        {c.purpose}
                                     </span>
@@ -403,6 +390,51 @@ export default function CauseListPage() {
                 </div>
               </Card>
 
+              {dayInfo.held.length > 0 && (
+                <Card className="overflow-hidden border-amber-200/70">
+                  <CardHeader className="border-b bg-amber-50/60 pb-3 dark:bg-amber-950/20">
+                    <div className="flex items-center gap-2">
+                      <CardTitle className="text-base">Not immediately listed</CardTitle>
+                      <Badge variant="outline" className="border-amber-200 bg-card text-amber-800">{dayInfo.held.length}</Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground">Record-based court-side defects need confirmation before listing. Capacity deferrals are shown separately; stage risks alone do not block a case.</p>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    <ul className="divide-y divide-border">
+                      {(showAllHeld ? dayInfo.held : dayInfo.held.slice(0, 4)).map(h => (
+                        <li key={h.caseId} className="flex flex-col gap-2 px-5 py-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Link href={`/roster/${encodeURIComponent(h.caseId)}`} className="text-sm font-semibold text-primary hover:underline">{h.caseId}</Link>
+                              <Badge variant="outline" className={h.reason.code !== "DAY_FULL" ? "border-amber-200 text-amber-800 dark:text-amber-300" : "text-muted-foreground"}>{h.reason.code === "DAY_FULL" ? "Day is full" : "Not today"}</Badge>
+                            </div>
+                            {getDefects(h).length > 0 && (
+                              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                                {(showAllHeld ? getDefects(h) : getDefects(h).slice(0, 2)).map(d => <DefectChip key={d.code} defect={d} />)}
+                                {!showAllHeld && getDefects(h).length > 2 && <span className="text-xs text-muted-foreground">+{getDefects(h).length - 2} more</span>}
+                              </div>
+                            )}
+                            <p className="mt-1 text-xs text-muted-foreground">{h.reason.code === "DAY_FULL" ? h.reason.detail : `From the record: “${h.reason.detail}”`}</p>
+                          </div>
+                          <span className="shrink-0 text-right text-xs text-muted-foreground">
+                            {h.reason.code !== "DAY_FULL"
+                              ? `Clears when: ${h.readyDate}`
+                              : isValid(new Date(h.readyDate))
+                                ? `Consider from ${format(new Date(`${h.readyDate}T12:00:00`), "MMM d, yyyy")}`
+                                : "Consider at a later sitting"}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                    {dayInfo.held.length > 4 && (
+                      <button type="button" aria-expanded={showAllHeld} onClick={() => setShowAllHeld(value => !value)} className="w-full border-t px-5 py-2.5 text-left text-xs font-medium text-primary hover:bg-muted/50">
+                        {showAllHeld ? "Show fewer cases" : `Show all ${dayInfo.held.length} cases`}
+                      </button>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
             </div>
           )}
         </>
@@ -421,6 +453,12 @@ export default function CauseListPage() {
               </SheetHeader>
               
               <div className="space-y-6">
+                {getDefects(selectedCase).length > 0 && (
+                  <div>
+                    <h4 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">What could stop the next hearing</h4>
+                    <div className="space-y-2">{getDefects(selectedCase).map(d => <DefectDetails key={d.code} defect={d} />)}</div>
+                  </div>
+                )}
                 <div>
                   <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Why was this scheduled?</h4>
                   <div className="space-y-3">

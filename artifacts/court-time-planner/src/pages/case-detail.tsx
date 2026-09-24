@@ -9,6 +9,7 @@ import { ArrowLeft, Clock, FileText, AlertTriangle, User, Calendar } from "lucid
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { format } from "date-fns";
+import { defectLabel } from "@/components/defect-chip";
 
 const displayDate = (date: string) => format(new Date(`${date}T12:00:00`), "d MMM yyyy");
 
@@ -32,6 +33,7 @@ export default function CaseDetailPage() {
   const suggested = !preview.isPending && !preview.isError
     ? preview.data?.days.flatMap(d => d.cases).find(c => c.caseId === caseInfo.id)
     : undefined;
+  const blockingDefect = caseInfo.defects.find(d => d.confidence === "record" && (d.code === "PROCESS_PENDING" || d.code === "EXTERNAL_WAIT"));
 
   return (
     <div className="workspace-page space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-4xl mx-auto">
@@ -43,7 +45,7 @@ export default function CaseDetailPage() {
           <div className="workspace-breadcrumb">Roster / Case detail</div>
           <h1 className="workspace-title text-3xl font-bold flex items-center gap-3">
             {caseInfo.filingNumber}
-            {caseInfo.flags.map(f => <Badge key={f} variant="secondary">{f === "WAITING_WARRANT" ? "Process to confirm" : f === "OLD_CASE" ? "4+ years old" : f.replaceAll("_", " ").toLowerCase()}</Badge>)}
+            {caseInfo.flags.map(f => <Badge key={f} variant="secondary">{f === "WAITING_WARRANT" ? "Process to confirm" : f === "EXTERNAL_WAIT" ? "Report to confirm" : f === "OLD_CASE" ? "4+ years old" : f.replaceAll("_", " ").toLowerCase()}</Badge>)}
           </h1>
           <p className="workspace-subtitle text-muted-foreground mt-1">Filed on {displayDate(caseInfo.filingDate)}</p>
         </div>
@@ -75,8 +77,8 @@ export default function CaseDetailPage() {
                       <p className="text-muted-foreground">Checking the selected schedule…</p>
                     ) : preview.isError ? (
                       <p className="text-destructive">The selected schedule could not be loaded. Try again from the cause list.</p>
-                    ) : caseInfo.waitingOn ? (
-                      <><p className="text-xs font-medium text-amber-700">No listing date yet</p><p className="font-semibold">Process confirmation needed</p><p className="mt-1 text-muted-foreground">{caseInfo.waitingOn}. This warning is inferred from the hearing note; confirm with the registry before listing.</p></>
+                    ) : blockingDefect ? (
+                      <><p className="text-xs font-medium text-amber-700">No listing date yet</p><p className="font-semibold">{defectLabel(blockingDefect)}</p><p className="mt-1 text-muted-foreground">From the record: “{blockingDefect.evidence}” · {blockingDefect.clears_when}. Confirm the current status before listing.</p></>
                     ) : suggested ? (
                       <><time dateTime={suggested.date} className="text-xs font-medium text-primary">{displayDate(suggested.date)}</time><p className="font-semibold">Proposed listing · {suggested.window} ({suggested.block})</p><p className="mt-1 text-muted-foreground">{suggested.reasons.map(r => r.detail).join(" · ")}</p></>
                     ) : (

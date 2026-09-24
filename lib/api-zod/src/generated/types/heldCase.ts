@@ -5,10 +5,12 @@
  * Court Time Planner API
  * OpenAPI spec version: 0.1.0
  */
+import type { Defect } from './defect';
 import type { Reason } from './reason';
 
 export interface HeldCase {
   caseId: string;
   reason: Reason;
   readyDate: string;
+  defects?: Defect[];
 }
